@@ -1,0 +1,30 @@
+{
+  "PETUN": {
+    "alerts": [
+      14.34,
+      12.69,
+      null
+    ]
+  },
+  "TBORG": {
+    "alerts": [
+      195.5,
+      168.9,
+      191
+    ]
+  },
+  "TRGYO": {
+    "alerts": [
+      77,
+      74,
+      90
+    ]
+  },
+  "AKMGY": {
+    "alerts": [
+      165,
+      null,
+      null
+    ]
+  }
+}

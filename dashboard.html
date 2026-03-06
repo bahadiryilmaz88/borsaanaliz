@@ -1,0 +1,2562 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>BIST ANALİZ PRO (TRINITY ENGINE)</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0E1015" />
+
+    <!-- LIBRARIES -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+
+    <!-- STYLES -->
+    <style>
+        :root {
+            --bg: #050505;
+            --panel: #11141a;
+            --border: #232730;
+            --brand: #3b82f6;
+            --success: #00c853;
+            --danger: #ff1744;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: #cfd8dc;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #37474f;
+        }
+
+        .score-card {
+            background: linear-gradient(145deg, #1a1f29, #11141a);
+            border: 1px solid var(--border);
+        }
+
+        .module-item {
+            background: #161a22;
+            border-bottom: 1px solid var(--border);
+            transition: 0.2s;
+        }
+
+        .module-item:hover {
+            background: #1c212b;
+        }
+
+        /* Chart Override for specific inputs */
+        input.search-box {
+            background: transparent;
+            border: none;
+            font-size: 2rem;
+            font-weight: 900;
+            color: white;
+            text-transform: uppercase;
+            outline: none;
+            width: 200px;
+        }
+
+        input::placeholder {
+            color: #37474f;
+        }
+
+        /* PRICE FLASH ANIMATION */
+        @keyframes flashGreen {
+            0% {
+                background-color: #22c55e;
+                color: white;
+            }
+
+            100% {
+                background-color: transparent;
+            }
+        }
+
+        @keyframes flashRed {
+            0% {
+                background-color: #ef4444;
+                color: white;
+            }
+
+            100% {
+                background-color: transparent;
+            }
+        }
+
+        .flash-up {
+            animation: flashGreen 1s ease-out;
+            border-radius: 4px;
+        }
+
+        .flash-down {
+            animation: flashRed 1s ease-out;
+            border-radius: 4px;
+        }
+
+        /* MOBILE OPTIMIZATIONS */
+        @media (max-width: 768px) {
+            .search-box {
+                width: 100% !important;
+                font-size: 1.5rem !important;
+            }
+
+            .module-item {
+                padding: 0.75rem !important;
+            }
+
+            /* Custom Scrollbar for Mobile hidden */
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        }
+
+        /* LANDSCAPE MODE */
+        /* LANDSCAPE MODE (HUD) */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .mobile-layout {
+                flex-direction: row !important;
+            }
+
+            .mobile-sidebar {
+                display: none !important;
+            }
+
+            /* Hide sidebar in landscape for full chart */
+
+            .mobile-controls {
+                position: fixed !important;
+                top: 0 !important;
+                bottom: 0 !important;
+                right: 0 !important;
+                left: auto !important;
+                width: 60px !important;
+                height: 100% !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                background: rgba(22, 26, 34, 0.8) !important;
+                /* Semi-transparent */
+                backdrop-filter: blur(4px);
+                border-top: none !important;
+                border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
+                padding: 10px 0 !important;
+                gap: 10px !important;
+                overflow-y: auto !important;
+            }
+
+            /* Adjust control items for vertical layout */
+            .mobile-controls>div {
+                flex-direction: column !important;
+                width: 100% !important;
+                align-items: center !important;
+            }
+
+            .mobile-controls button {
+                padding: 1px !important;
+                font-size: 8px !important;
+                width: 40px !important;
+                text-align: center !important;
+            }
+
+            .mobile-controls .w-\[1px\] {
+                width: 80% !important;
+                height: 1px !important;
+                margin: 5px 0 !important;
+            }
+
+            /* Hide FAB in landscape */
+            .fab-container {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="root" class="h-screen w-screen flex flex-col"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // --- FULL BIST LIST (Approx 500) ---
+        const ALL_BIST = [
+
+            "ACSEL", "ADEL", "ADESE", "ADGYO", "AEFES", "AFYON", "AGESA", "AGHOL", "AGYO", "AHGAZ", "AKBNK", "AKCNS", "AKENR", "AKFGY", "AKGRT", "AKMGY", "AKSA", "AKSEN", "AKSGY", "AKSUE", "AKYHO", "ALARK", "ALBRK", "ALCAR", "ALCTL", "ALFAS", "ALGYO", "ALKA", "ALKIM", "ALMAD", "ALTNY", "ANAGT", "ANELT", "ANGEN", "ANHYT", "ANSGR", "ARASE", "ARCLK", "ARENA", "ARSAN", "ARZUM", "ASELS", "ASGYO", "ASTOR", "ASUZU", "ATAGY", "ATAKP", "ATATP", "ATEKS", "ATLAS", "ATSYH", "AVGYO", "AVHOL", "AVOD", "AVTUR", "AYCES", "AYDEM", "AYEN", "AYES", "AYGAZ", "AZTEK", "BAGFS", "BAKAB", "BALAT", "BANVT", "BARMA", "BASCM", "BASGZ", "BAYRK", "BEGYO", "BERA", "BEYAZ", "BFREN", "BIENY", "BIGCH", "BIMAS", "BIOEN", "BIZIM", "BJKAS", "BLCYT", "BMSCH", "BMSTL", "BNTAS", "BOBET", "BOSSA", "BRISA", "BRKO", "BRKSN", "BRKVY", "BRLSM", "BRMEN", "BRSAN", "BRYAT", "BSOKE", "BTCIM", "BUCIM", "BURCE", "BURVA", "BVSAN", "BYDNR", "CANTE", "CASA", "CCOLA", "CELHA", "CEMAS", "CEMTS", "CEOEM", "CIMSA", "CLEBI", "CMBTN", "CMENT", "CONSE", "COSMO", "CRDFA", "CRFSA", "CUSAN", "CVKMD", "CWENE", "DAGHL", "DAGI", "DAPGM", "DARDL", "DENGE", "DERHL", "DERIM", "DESA", "DESPC", "DEVA", "DGATE", "DGGYO", "DGNMO", "DIRIT", "DITAS", "DMSAS", "DNISI", "DOAS", "DOBUR", "DOCO", "DOGUB", "DOHOL", "DOKTA", "DURDO", "DYOBY", "DZGYO", "EBEBK", "ECILC", "ECZYT", "EDATA", "EDIP", "EGEEN", "EGGUB", "EGPRO", "EGSER", "EKGYO", "EKIZ", "EKSUN", "ELITE", "EMKEL", "EMNIS", "ENJSA", "ENKAI", "ENSRI", "EPLAS", "ERBOS", "ERCB", "EREGL", "ERSU", "ESCAR", "ESCOM", "ESEN", "ETILR", "ETYAT", "EUHOL", "EUKYO", "EUPWR", "EUREN", "EUYO", "EYGYO", "FADE", "FENER", "FLAP", "FMIZP", "FONET", "FORMT", "FRIGO", "FROTO", "FZLGY", "GARAN", "GARFA", "GEDIK", "GELIY", "GENTS", "GEREL", "GESAN", "GIPTA", "GLBMD", "GLRYH", "GLYHO", "GMTAS", "GOKNR", "GOLTS", "GOODY", "GOZDE", "GRNYO", "GRSEL", "GSDDE", "GSDHO", "GSRAY", "GUBRF", "GWIND", "GZOMI", "HALKB", "HATEK", "HDFGS", "HEDEF", "HEKTS", "HKTM", "HLGYO", "HUBVC", "HUNER", "HURGZ", "ICBCT", "IDEAS", "IDGYO", "IEYHO", "IHAAS", "IHEVA", "IHGZT", "IHLAS", "IHLGM", "IHYAY", "IMASM", "INDES", "INFO", "INGRM", "INTEM", "INVEO", "INVES", "IPEKE", "ISATR", "ISBIR", "ISBTR", "ISCTR", "ISDMR", "ISFIN", "ISGSY", "ISGYO", "ISKPL", "ISKUR", "ISMEN", "ISSEN", "ISYAT", "IZENR", "IZFAS", "IZINV", "IZMDC", "JANTS", "KAPLM", "KARYE", "KATMR", "KAYSE", "KCAER", "KCHOL", "KENT", "KERVT", "KFEIN", "KGYO", "KIMMR", "KLGYO", "KLKIM", "KLMSN", "KLNMA", "KLSER", "KMPUR", "KNFRT", "KONKA", "KONTR", "KONYA", "KOPOL", "KORDS", "KOZAA", "KOZAL", "KRDMA", "KRDMB", "KRDMD", "KRGYO", "KRONT", "KRPLS", "KRSTL", "KRTEK", "KRVGD", "KSTUR", "KTLEV", "KTSKR", "KUTPO", "KUVVA", "KUYAS", "KZBGY", "KZGYO", "LATEK", "LIDER", "LIDFA", "LINK", "LKMNH", "LOGO", "LUPUS", "MAGEN", "MAKTK", "MANAS", "MARKA", "MARTI", "MAVI", "MEDTR", "MEGAP", "MEPET", "MERCN", "MERIT", "MERKO", "METRO", "METUR", "MGROS", "MIATK", "MIPAZ", "MMCAS", "MNDRS", "MOBTL", "MPARK", "MRGYO", "MRSHL", "MSGYO", "MTRKS", "MTRYO", "MZHLD", "NATEN", "NETAS", "NIBAS", "NTHOL", "NUHCM", "OBASE", "ODAS", "OFFSYM", "ONCSM", "ORCAY", "ORGE", "ORMA", "OSMEN", "OSTIM", "OTKAR", "OTTO", "OYAKC", "OYAYO", "OYLUM", "OYYAT", "OZGYO", "OZKGY", "OZRDN", "OZSUB", "PAGYO", "PAMEL", "PAPIL", "PARSN", "PASEU", "PCILT", "PEGYO", "PEKGY", "PENGD", "PENTA", "PETKM", "PETUN", "PGSUS", "PINSU", "PKART", "PKENT", "PLAT", "PLTUR", "PNLSN", "PNSUT", "POLHO", "POLTK", "PRDGS", "PRKAB", "PRKME", "PRZMA", "PSGYO", "PSDTC", "QUAGR", "RALYH", "RAYSG", "RNPOL", "RODRG", "ROYAL", "RTALB", "RUBNS", "RYGYO", "RYSAS", "SAFKR", "SAHOL", "SAMAT", "SANEL", "SANFM", "SANKO", "SARKY", "SASA", "SAYAS", "SDTTR", "SEKFK", "SEKUR", "SELEC", "SELGD", "SELVA", "SEYKM", "SILVR", "SISE", "SKBNK", "SKTAS", "SMART", "SMRTG", "SNGYO", "SNKRN", "SNPAM", "SODA", "SOKE", "SOKM", "SONME", "SRVGY", "SUMAS", "SUNGW", "SUWEN", "TATGD", "TAVHL", "TBORG", "TBS", "TCELL", "TDGYO", "TEKTU", "TERA", "TETMT", "TEZOL", "TGSAS", "THYAO", "TIRE", "TKFEN", "TKNSA", "TLMAN", "TMPOL", "TMSN", "TNZTP", "TOASO", "TRCAS", "TRGYO", "TRILC", "TSGYO", "TSKB", "TSPOR", "TTKOM", "TTRAK", "TUCLK", "TUKAS", "TUPRS", "TUREX", "TURGG", "TURSG", "UFUK", "ULAS", "ULKER", "ULUSE", "ULUUN", "UMPAS", "UNLU", "USAK", "UZERB", "VAKBN", "VAKFN", "VAKKO", "VANGD", "VBTYZ", "VERTU", "VERUS", "VESBE", "VESTL", "VKFYO", "VKGYO", "VKING", "YAPRK", "YATAS", "YAYLA", "YEOTK", "YESIL", "YGGYO", "YGYO", "YKBNK", "YKSLN", "YONGA", "YUNSA", "YYAPI", "ZEDUR", "ZOREN", "ZRGYO"
+        ].sort();
+
+        // --- TECHNICAL ANALYSIS ENGINE (AUTO-PILOT) ---
+        const BB_PERIOD = 18;
+
+        const Engine = {
+            calcIchimoku: (data) => {
+                const getHL = (start, period) => {
+                    let h = -Infinity, l = Infinity;
+                    for (let i = 0; i < period; i++) {
+                        if (start - i < 0) break;
+                        h = Math.max(h, data[start - i].high); l = Math.min(l, data[start - i].low);
+                    }
+                    return (h + l) / 2;
+                };
+
+                return data.map((d, i) => {
+                    const tenkan = getHL(i, 9);
+                    const kijun = getHL(i, 26);
+                    const spanA = (tenkan + kijun) / 2;
+                    const spanB = getHL(i, 52);
+                    return { time: d.time, tenkan, kijun, spanA, spanB };
+                });
+            },
+
+            calcRSI: (data, period = 14) => {
+                if (!data || data.length <= period) return [];
+                let gains = 0, losses = 0;
+                // First average
+                for (let i = 1; i <= period; i++) {
+                    const diff = data[i].close - data[i - 1].close;
+                    if (diff > 0) gains += diff; else losses -= diff;
+                }
+                let avgGain = gains / period;
+                let avgLoss = losses / period;
+
+                const rsiArray = [];
+                for (let i = 0; i < period; i++) rsiArray.push(null);
+
+                if (avgLoss === 0) rsiArray.push(100);
+                else rsiArray.push(100 - (100 / (1 + (avgGain / avgLoss))));
+
+                for (let i = period + 1; i < data.length; i++) {
+                    const diff = data[i].close - data[i - 1].close;
+                    if (diff > 0) { avgGain = (avgGain * 13 + diff) / 14; avgLoss = (avgLoss * 13) / 14; }
+                    else { avgGain = (avgGain * 13) / 14; avgLoss = (avgLoss * 13 - diff) / 14; }
+
+                    if (avgLoss === 0) rsiArray.push(100);
+                    else rsiArray.push(100 - (100 / (1 + (avgGain / avgLoss))));
+                }
+                return rsiArray;
+            },
+
+
+
+            calcFib: (data) => {
+                const lookback = data.slice(-100);
+                let high = -Infinity, low = Infinity;
+                lookback.forEach(d => { high = Math.max(high, d.high); low = Math.min(low, d.low); });
+                return {
+                    high,
+                    low,
+                    levels: [0, 0.382, 0.5, 0.618, 1].map(level => ({
+                        level,
+                        price: low + (high - low) * level
+                    }))
+                };
+            },
+
+            detectPattern: (data) => {
+                if (!data || data.length < 2) return "None";
+                const last = data[data.length - 1];
+                const prev = data[data.length - 2];
+                const isEngulfing = last.close > last.open && prev.close < prev.open && last.close > prev.open && last.open < prev.close;
+                const body = Math.abs(last.close - last.open);
+                const lowerWick = Math.min(last.close, last.open) - last.low;
+                const isHammer = lowerWick > body * 2;
+
+                if (isEngulfing) return "Engulfing";
+                if (isHammer) return "Hammer";
+                return "None";
+            },
+
+            calcSignal: (score) => {
+                if (score >= 80) return { label: "GÜÇLÜ AL", color: "text-green-500", bg: "bg-green-500/20" };
+                if (score >= 60) return { label: "AL", color: "text-green-400", bg: "bg-green-400/20" };
+                if (score >= 40) return { label: "NÖTR", color: "text-gray-400", bg: "bg-gray-400/20" };
+                if (score >= 20) return { label: "SAT", color: "text-red-400", bg: "bg-red-400/20" };
+                return { label: "GÜÇLÜ SAT", color: "text-red-600", bg: "bg-red-600/20" };
+            },
+
+            // --- GELİŞMİŞ "TRINITY" (ÜÇLÜ ONAY) SİNYAL MOTORU ---
+            generateSignals: (data, mode = 'conservative') => {
+                // 1. İndikatörleri Hesapla
+                const rsiArray = Engine.calcRSI(data, 14);
+
+                // SMA 200 (Trend), BB (20,2), VolSMA (20)
+                const sma200 = [];
+                const bbArray = [];
+                const volSma = [];
+
+                const bbPeriod = BB_PERIOD;
+                const bbMult = 2;
+
+                let sum200 = 0;
+
+                for (let i = 0; i < data.length; i++) {
+                    // SMA 200
+                    sum200 += data[i].close;
+                    if (i >= 200) sum200 -= data[i - 200].close;
+                    sma200.push(i >= 199 ? sum200 / 200 : null);
+
+                    // Bollinger & Volume SMA
+                    if (i >= bbPeriod - 1) {
+                        const slice = data.slice(i - bbPeriod + 1, i + 1);
+
+                        // Fiyat BB
+                        const mean = slice.reduce((acc, val) => acc + val.close, 0) / bbPeriod;
+                        const variance = slice.reduce((acc, val) => acc + Math.pow(val.close - mean, 2), 0) / bbPeriod;
+                        const stdDev = Math.sqrt(variance);
+
+                        bbArray.push({
+                            upper: mean + (bbMult * stdDev),
+                            lower: mean - (bbMult * stdDev),
+                            middle: mean
+                        });
+
+                        // Hacim SMA
+                        const volMean = slice.reduce((acc, val) => acc + val.volume, 0) / bbPeriod;
+                        volSma.push(volMean);
+                    } else {
+                        bbArray.push(null);
+                        volSma.push(null);
+                    }
+                }
+
+                // 2. Sinyal Tarama Döngüsü
+                return data.map((d, i) => {
+                    let item = { ...d, buy_signal: false, sell_signal: false };
+
+                    // Veri yeterli değilse geç
+                    if (i < 200 || !sma200[i] || !bbArray[i] || !volSma[i]) return item;
+
+                    const price = d.close;
+                    const prevD = data[i - 1];
+                    const rsi = rsiArray[i];
+                    const prevRsi = rsiArray[i - 1];
+                    const trendLine = sma200[i];
+                    const bb = bbArray[i];
+                    const prevBB = bbArray[i - 1];
+                    const avgVol = volSma[i];
+
+                    // Band Width & Expansion Check
+                    const bw = bb ? (bb.upper - bb.lower) / bb.middle : 0;
+                    const prevBW = prevBB ? (prevBB.upper - prevBB.lower) / prevBB.middle : 0;
+                    const isExpanding = bw > prevBW;
+
+                    // --- MODA GÖRE STRATEJİ SEÇİMİ ---
+
+                    if (mode === 'conservative') {
+                        // === STRATEJİ 1: TRINITY (GÜVENLİ TREND) ===
+                        // 1. Trend Yukarı (SMA200 Üstü)
+                        // 2. Fiyat Ucuzlamış (Önceki mum BB Alt Bandına değmiş)
+                        // 3. Dönüş Başlamış (RSI Yükseliyor ve Fiyat BB içine girmiş)
+
+                        const condTrend = price > trendLine;
+                        const condCheap = prevD.low <= prevBB.lower;
+                        const condReversal = price > bb.lower && rsi > prevRsi;
+
+                        if (condTrend && condCheap && condReversal) {
+                            item.buy_signal = true;
+                        }
+
+                        // Satış (Kâr Al veya Stop)
+                        if ((price > bb.upper && rsi > 70) || (prevD.close > trendLine && price < trendLine)) {
+                            item.sell_signal = true;
+                        }
+
+                    } else {
+                        // === STRATEJİ 2: SNIPER (AGRESİF DİP AVCISI) ===
+                        // 1. Aşırı Satım (Bollinger delinmiş + RSI < 32)
+                        // 2. Hacim Patlaması (Ortalamanın 1.2 katı)
+                        // 3. Yeşil Mum Yakmış
+
+                        const wasOversold = prevD.low <= prevBB.lower;
+                        const rsiBuyZone = prevRsi < 32 && rsi > prevRsi; // 32 altından dönüş
+                        const volSpike = d.volume > avgVol * 1.2;
+                        const isGreen = d.close > d.open;
+
+                        if (wasOversold && rsiBuyZone && volSpike && isGreen && isExpanding) {
+                            item.buy_signal = true;
+                        }
+
+                        // Satış (Tepki bitişi)
+                        if (d.high >= bb.upper && rsi > 65) {
+                            item.sell_signal = true;
+                        }
+                    }
+
+                    return item;
+                });
+            },
+
+            run: (json) => {
+                const ohlc = json.ohlc;
+                if (!ohlc || ohlc.length < 5) return null; // Safety check (Relaxed to 5 for IPOs)
+
+                const ichi = Engine.calcIchimoku(ohlc);
+                const fib = Engine.calcFib(ohlc);
+                const pattern = Engine.detectPattern(ohlc);
+                const rsiArr = Engine.calcRSI(ohlc);
+                const rsi = rsiArr[rsiArr.length - 1];
+                const rsiPrev = rsiArr.at(-2) ?? rsi;
+                const rsiSlope = rsi > rsiPrev ? 'UP' : 'DOWN';
+
+
+
+                // --- SCORING ---
+                const last = ohlc[ohlc.length - 1];
+
+                // 1. Ichimoku Logic: Check Cloud (SpanA/B from 26 bars ago)
+                const cloudIdx = ohlc.length - 1 - 26;
+                let cloudStatus = "Neutral";
+                if (cloudIdx >= 0) {
+                    const c = ichi[cloudIdx];
+                    const top = Math.max(c.spanA, c.spanB);
+                    const bot = Math.min(c.spanA, c.spanB);
+                    if (last.close > top) cloudStatus = "Above";
+                    else if (last.close < bot) cloudStatus = "Below";
+                    else cloudStatus = "Inside";
+                }
+
+                // Scores
+                const sDir = cloudStatus === 'Above' ? 25 : 0;
+                const sStr = 8; // Default good structure in auto mode
+                const sMom = 12; // Default good momentum
+                const sBias = pattern !== 'None' ? 20 : 0;
+                const sCat = 10;
+
+                // Risk (Dynamic Swing Low)
+                let swingLow = Infinity;
+                for (let i = ohlc.length - 20; i < ohlc.length; i++) {
+                    if (ohlc[i]) swingLow = Math.min(swingLow, ohlc[i].low);
+                }
+                let suggestedStop = swingLow * 0.995; // Just below support
+                let riskPct = (last.close - suggestedStop) / last.close;
+
+                // STRICT RULE: Max Stop 12% (User Request: 8-12% range).
+                // If technical stop is wider than 12%, cap it at 12%.
+                if (riskPct > 0.12) { suggestedStop = last.close * 0.88; riskPct = 0.12; }
+
+                let suggestedTarget = last.close + (last.close - suggestedStop) * 2.5; // Aim for 2.5R
+                let rr = (suggestedTarget - last.close) / (last.close - suggestedStop);
+
+                let sRisk = (riskPct <= 0.12 && rr >= 2) ? 15 : 0; // Score logic based on feasibility
+
+                // Smart Entry Zone (Fib 0.5 + Kijun Confluence)
+                const fib50 = fib.levels[2].price;
+                const ichiNow = ichi[ichi.length - 1];
+                const kijun = ichiNow.kijun;
+                const zoneHigh = Math.max(fib50, kijun);
+                const zoneLow = Math.min(fib50, kijun) * 0.99;
+
+                const total = sDir + sStr + sMom + sBias + sCat + sRisk;
+                const signal = Engine.calcSignal(total);
+
+                return {
+                    ichi, fib, pattern, cloudStatus, rsi, rsiSlope,
+                    risk: { stop: suggestedStop, target: suggestedTarget, rr, riskPct, zoneLow, zoneHigh },
+                    scores: { sDir, sStr, sMom, sBias, sCat, sRisk, total },
+                    trend_health: json.cascade?.trend_health,
+                    sma_analysis: json.cascade?.sma_analysis,
+                    target: json.cascade?.target,
+                    signal,
+                    pattern_4h: json.cascade?.pattern_4h,
+                    cascade: json.cascade, // Pass full cascade data for visualization
+                    sell_zone: json.cascade?.trend_health?.sell_zone // Pass Sell Zone info
+                };
+            }
+        };
+
+        const Chart = ({ data, indicators, visible = { ichi: false, fib: false, sma: false, bb: false, vol: false, pattern: false }, onSeriesReady }) => {
+            const container = useRef();
+            const chartRef = useRef(null);
+            const seriesRef = useRef({});
+            const savedMarkers = useRef([]); // Markerları hafızada tutmak için
+
+            // 1. INIT CHART (Run once)
+            useEffect(() => {
+                if (!container.current) return;
+
+                const chart = LightweightCharts.createChart(container.current, {
+                    layout: { background: { color: '#0E1015' }, textColor: '#cfd8dc' },
+                    grid: { vertLines: { color: '#232730', style: 1 }, horzLines: { color: '#232730', style: 1 } },
+                    width: container.current.clientWidth, height: container.current.clientHeight,
+                    rightPriceScale: { visible: true, borderColor: '#232730', scaleMargins: { top: 0.1, bottom: 0.2 } },
+                    crosshair: { mode: 1 }, timeScale: { rightOffset: 5, borderColor: '#232730' }
+                });
+
+                const candles = chart.addCandlestickSeries({ upColor: '#00b746', downColor: '#ef403c', borderVisible: true, wickUpColor: '#00b746', wickDownColor: '#ef403c', borderUpColor: '#00b746', borderDownColor: '#ef403c' });
+                const volume = chart.addHistogramSeries({ color: '#26a69a', priceFormat: { type: 'volume' }, priceScaleId: '', scaleMargins: { top: 0.8, bottom: 0 } });
+
+                // Indicators Lines (Init empty)
+                const tenkan = chart.addLineSeries({ color: '#2962FF', lineWidth: 1, title: 'Tenkan' });
+                const kijun = chart.addLineSeries({ color: '#B71C1C', lineWidth: 1, title: 'Kijun' });
+
+                // Init Fib Lines (Fixed Set)
+                const fibLevels = [0, 0.382, 0.5, 0.618, 1];
+                const fibLines = {};
+                fibLevels.forEach(level => {
+                    fibLines[level] = chart.addLineSeries({
+                        color: (level === 0.618 || level === 0.382) ? '#d500f9' : '#787b86',
+                        lineWidth: 1, lineStyle: 2, title: `Fib ${level}`
+                    });
+                });
+
+                // Save refs
+                chartRef.current = chart;
+                seriesRef.current = { candles, volume, tenkan, kijun, sma50: null, sma200: null, bbUp: null, bbLow: null, fibLines };
+
+                if (onSeriesReady) onSeriesReady({ candles, volume });
+
+                const ro = new ResizeObserver(entries => {
+                    if (entries[0] && chartRef.current) {
+                        const { width, height } = entries[0].contentRect;
+                        chartRef.current.applyOptions({ width, height });
+                    }
+                });
+                ro.observe(container.current);
+
+                return () => {
+                    ro.disconnect();
+                    if (chartRef.current) {
+                        chartRef.current.remove();
+                        chartRef.current = null;
+                    }
+                };
+            }, []);
+
+            // 2. DATA UPDATE
+            useEffect(() => {
+                if (!chartRef.current || !data) return;
+                const { candles, volume, tenkan, kijun } = seriesRef.current;
+
+                // Sort & Clean Data
+                const unique = Array.from(new Map(data.map(i => [i.time, i])).values()).sort((a, b) => {
+                    const tA = typeof a.time === 'number' ? a.time : new Date(a.time).getTime() / 1000;
+                    const tB = typeof b.time === 'number' ? b.time : new Date(b.time).getTime() / 1000;
+                    return tA - tB;
+                });
+
+                candles.setData(unique);
+                volume.setData(unique.map(d => ({ time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(0, 183, 70, 0.5)' : 'rgba(239, 64, 60, 0.5)' })));
+                volume.applyOptions({ visible: visible.vol });
+
+                // --- SCALING FIX ---
+                // Force chart to fit the new content ranges
+                chartRef.current.timeScale().fitContent();
+                chartRef.current.priceScale('right').applyOptions({
+                    autoScale: true,
+                });
+
+
+                // Update Markers (Accumulate first, set later)
+                const markers = [];
+                unique.forEach(d => {
+                    if (d.buy_signal) markers.push({ time: d.time, position: 'belowBar', color: '#00E676', shape: 'arrowUp', text: 'AL', size: 2 });
+                    if (d.sell_signal) markers.push({ time: d.time, position: 'aboveBar', color: '#FF1744', shape: 'arrowDown', text: 'SAT', size: 2 });
+                });
+
+                // Update Ichimoku Data
+                if (indicators?.ichi) {
+                    tenkan.setData(indicators.ichi.filter(x => x.tenkan).map(x => ({ time: x.time, value: x.tenkan })));
+                    kijun.setData(indicators.ichi.filter(x => x.kijun).map(x => ({ time: x.time, value: x.kijun })));
+                    tenkan.applyOptions({ visible: visible.ichi });
+                    kijun.applyOptions({ visible: visible.ichi });
+                }
+
+
+
+                // SMA
+                if (indicators) {
+                    // Helper: Calc SMA
+                    const calculateSMA = (period) => {
+                        if (unique.length < period) return [];
+                        const smaData = [];
+                        for (let i = period - 1; i < unique.length; i++) {
+                            const sum = unique.slice(i - period + 1, i + 1).reduce((acc, val) => acc + val.close, 0);
+                            smaData.push({ time: unique[i].time, value: sum / period });
+                        }
+                        return smaData;
+                    };
+
+                    // SMA 50
+                    if (!seriesRef.current.sma50) {
+                        seriesRef.current.sma50 = chartRef.current.addLineSeries({ color: '#FFD600', lineWidth: 2, title: 'SMA 50' });
+                    }
+                    seriesRef.current.sma50.setData(calculateSMA(50));
+
+                    // SMA 200
+                    if (!seriesRef.current.sma200) {
+                        seriesRef.current.sma200 = chartRef.current.addLineSeries({ color: '#FF6D00', lineWidth: 2, title: 'SMA 200' });
+                    }
+                    seriesRef.current.sma200.setData(calculateSMA(200));
+
+                    // Apply Visibility
+                    seriesRef.current.sma50?.applyOptions({ visible: visible.sma });
+                    seriesRef.current.sma200?.applyOptions({ visible: visible.sma });
+
+                    // Bollinger
+                    const calculateBB = (period = BB_PERIOD, mult = 2) => {
+                        if (unique.length < period) return [];
+                        const bbData = [];
+                        for (let i = period - 1; i < unique.length; i++) {
+                            const slice = unique.slice(i - period + 1, i + 1);
+                            const mean = slice.reduce((acc, val) => acc + val.close, 0) / period;
+                            const variance = slice.reduce((acc, val) => acc + Math.pow(val.close - mean, 2), 0) / period;
+                            const stdDev = Math.sqrt(variance);
+                            bbData.push({ time: unique[i].time, upper: mean + mult * stdDev, lower: mean - mult * stdDev });
+                        }
+                        return bbData;
+                    };
+                    const bb = calculateBB();
+
+                    if (!seriesRef.current.bbUp) {
+                        seriesRef.current.bbUp = chartRef.current.addLineSeries({ color: '#ef5350', lineWidth: 1, title: 'BB Upper' });
+                    }
+                    seriesRef.current.bbUp.setData(bb.map(d => ({ time: d.time, value: d.upper })));
+
+                    if (!seriesRef.current.bbLow) {
+                        seriesRef.current.bbLow = chartRef.current.addLineSeries({ color: '#26a69a', lineWidth: 1, title: 'BB Lower' });
+                    }
+                    seriesRef.current.bbLow.setData(bb.map(d => ({ time: d.time, value: d.lower })));
+
+                    // Apply Visibility
+                    seriesRef.current.bbUp?.applyOptions({ visible: visible.bb });
+                    seriesRef.current.bbLow?.applyOptions({ visible: visible.bb });
+
+                    // Fib (Optimized Update)
+                    if (indicators?.fib?.levels) {
+                        indicators.fib.levels.forEach(l => {
+                            const line = seriesRef.current.fibLines[l.level];
+                            if (line) {
+                                line.setData(unique.map(d => ({ time: d.time, value: l.price })));
+                                line.applyOptions({ visible: visible.fib });
+                            }
+                        });
+                    }
+
+                    // --- CASCADE STRATEGY VISUALS (NEW) ---
+                    // Clear old Cascade Lines (PriceLines attached to main series)
+                    if (seriesRef.current.cascadeLines) {
+                        seriesRef.current.cascadeLines.forEach(l => candles.removePriceLine(l));
+                    }
+                    seriesRef.current.cascadeLines = [];
+
+                    if (indicators?.cascade) {
+                        const cas = indicators.cascade;
+
+                        // 1. Setup Zone (If Waiting or Setup Ready)
+                        // Backend returns 'zone': [fib618, fib500]
+                        if (cas.zone && (cas.status === 'WAITING' || cas.status === 'SETUP_READY')) {
+                            const zoneTop = Math.max(...cas.zone);
+                            const zoneBot = Math.min(...cas.zone);
+
+                            const l1 = candles.createPriceLine({ price: zoneTop, color: '#9C27B0', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'SETUP ZONE TOP' });
+                            const l2 = candles.createPriceLine({ price: zoneBot, color: '#9C27B0', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'SETUP ZONE BOT' });
+                            seriesRef.current.cascadeLines.push(l1, l2);
+                        }
+
+                        // 2. Trade Levels (Stop/Target/Entry) - Only if Active or Setup Ready (preview)
+                        if (cas.levels && (cas.trigger_active || cas.setup_active)) {
+                            if (cas.levels.stop) {
+                                const l = candles.createPriceLine({ price: cas.levels.stop, color: '#FF1744', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: 'STOP' });
+                                seriesRef.current.cascadeLines.push(l);
+                            }
+                            if (cas.levels.target) {
+                                const l = candles.createPriceLine({ price: cas.levels.target, color: '#00E676', lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: 'TARGET' });
+                                seriesRef.current.cascadeLines.push(l);
+                            }
+                            if (cas.levels.price) {
+                                const l = candles.createPriceLine({ price: cas.levels.price, color: '#2979FF', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'ENTRY' });
+                                seriesRef.current.cascadeLines.push(l);
+                            }
+                        }
+
+                        // 3. Trigger Marker
+                        if (cas.trigger_active) {
+                            const lastTime = unique[unique.length - 1].time;
+                            markers.push({
+                                time: lastTime,
+                                position: 'belowBar',
+                                color: '#00E676',
+                                shape: 'arrowUp',
+                                text: 'CASCADE GİRİŞ',
+                                size: 2
+                            });
+                        }
+
+
+                        // 4. SELL ZONE VISUALS
+                        if (indicators.cascade && indicators.sell_zone && indicators.sell_zone.score >= 3) {
+                            const lastTime = unique[unique.length - 1].time;
+                            markers.push({
+                                time: lastTime,
+                                position: 'aboveBar',
+                                color: '#e91e63',
+                                shape: 'arrowDown',
+                                text: `SAT BÖLGESİ (${indicators.sell_zone.score}/5)`,
+                                size: 2
+                            });
+                        }
+                    }
+                } // End Indicators check
+
+                // SAVE MARKERS STATE
+                savedMarkers.current = markers;
+                if (visible.pattern) candles.setMarkers(markers);
+                else candles.setMarkers([]);
+            }, [data, indicators]);
+
+            // 3. VISIBILITY UPDATE
+            useEffect(() => {
+                if (!chartRef.current) return;
+                const s = seriesRef.current;
+
+                // Ichi
+                if (s.tenkan) s.tenkan.applyOptions({ visible: visible.ichi });
+                if (s.kijun) s.kijun.applyOptions({ visible: visible.ichi });
+
+                // Vol
+                if (s.volume) s.volume.applyOptions({ visible: visible.vol });
+
+                // SMA
+                if (s.sma50) s.sma50.applyOptions({ visible: visible.sma });
+                if (s.sma200) s.sma200.applyOptions({ visible: visible.sma });
+
+                // BB
+                if (s.bbUp) s.bbUp.applyOptions({ visible: visible.bb });
+                if (s.bbLow) s.bbLow.applyOptions({ visible: visible.bb });
+
+
+
+                // If Stoch is ON, we might want to hide volume or share space, 
+                // but currently they assume same 'scaleMargins' (overlapping bottom).
+                // Improvements for future: Dynamically adjust scaleMargins.
+
+                // Fib
+                if (s.fibLines) {
+                    Object.values(s.fibLines).forEach(l => l.applyOptions({ visible: visible.fib }));
+                }
+
+                // Pattern Markers Toggle (Using savedMarkers ref)
+                if (s.candles) {
+                    if (visible.pattern) {
+                        s.candles.setMarkers(savedMarkers.current || []);
+                    } else {
+                        s.candles.setMarkers([]);
+                    }
+                }
+
+            }, [visible]);
+
+            return <div ref={container} className="w-full h-full bg-[#0E1015] relative" />;
+        };
+
+        // --- APP ---
+        const App = () => {
+            const [symbol, setSymbol] = useState('');
+            const [data, setData] = useState(null);
+            const [rsiSpecialScanning, setRsiSpecialScanning] = useState(false);
+            const [rsiSpecialResults, setRsiSpecialResults] = useState(null);
+
+            // Ref to access current data without triggering effects
+            const dataRef = useRef(data);
+            dataRef.current = data;
+            const [result, setResult] = useState(null);
+            const [sug, setSug] = useState([]);
+            const [stockNames, setStockNames] = useState({});
+            const [dailyChange, setDailyChange] = useState(null);
+            const [interval, setIntervalVal] = useState('4h');
+            const [viewMode, setViewMode] = useState('pro'); // 'simple' or 'pro'
+
+            const [flash, setFlash] = useState(null); // 'up' or 'down'
+            const [riskMode, setRiskMode] = useState('conservative');
+
+
+            const [scanning, setScanning] = useState(false);
+            const [scanResults, setScanResults] = useState(null);
+
+
+            const [aggScanning, setAggScanning] = useState(false);
+            const [aggResults, setAggResults] = useState(null);
+
+            const [volScanning, setVolScanning] = useState(false);
+            const [volResults, setVolResults] = useState(null);
+
+            const [manualScanning, setManualScanning] = useState(false);
+            const [manualScanResults, setManualScanResults] = useState(null);
+
+
+            const [cascadeScanning, setCascadeScanning] = useState(false);
+            const [cascadeResults, setCascadeResults] = useState(null);
+
+            const [simScanning, setSimScanning] = useState(false);
+            const [simResults, setSimResults] = useState(null);
+
+            const [cheapScanning, setCheapScanning] = useState(false);
+            const [cheapResults, setCheapResults] = useState([]);
+
+            // SCAN VISIBILITY STATE (Collapsible Sections)
+            const [scanVisibility, setScanVisibility] = useState({
+                cascade: false,
+                cheap: false,
+                vol: false,
+                market: false,
+                rsi: false,
+                manual: false,
+                sim: false
+            });
+
+            const toggleScan = (key) => {
+                setScanVisibility(prev => ({ ...prev, [key]: !prev[key] }));
+            };
+
+            // FAVORITES STATE
+            const [favorites, setFavorites] = useState({});  // Changed from array to object
+            const [favoritesOpen, setFavoritesOpen] = useState(false);
+            const [favoritePrices, setFavoritePrices] = useState({});
+            const [editingAlerts, setEditingAlerts] = useState({});  // Track which symbol's alerts are being edited
+
+
+
+            // Indicator Visibility State
+            const [indSettings, setIndSettings] = useState({
+                ichi: false,
+                fib: false,
+                sma: false,
+                bb: false,
+                vol: false,
+                pattern: false,
+                stoch: false
+            });
+
+            // System Guide Visibility State
+            const [guideOpen, setGuideOpen] = useState(false);
+
+            // MOBILE & QR STATE
+            const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+            const [mobileMenuOpen, setMobileMenuOpen] = useState(false); // Bottom Sheet State
+            const [showQR, setShowQR] = useState(false);
+            const [serverIP, setServerIP] = useState('');
+
+            useEffect(() => {
+                const handleResize = () => setIsMobile(window.innerWidth < 768);
+                window.addEventListener('resize', handleResize);
+                // Fetch IP
+                fetch('/api/ip').then(r => r.json()).then(d => setServerIP(d.ip)).catch(e => console.error(e));
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
+            // --- ALARM STATE REMOVED ---
+
+
+            // Refs for Chart Series Update
+            const chartSeries = useRef(null);
+
+            const toggleInd = (key) => setIndSettings(p => ({ ...p, [key]: !p[key] }));
+
+            const runScan = async () => {
+                setScanning(true);
+                setScanResults(null);
+                try {
+                    const res = await fetch('/scan?limit=500');
+                    const json = await res.json();
+                    setScanResults(json.results);
+                } catch (e) { alert("Tarama hatası: " + e.message); }
+                setScanning(false);
+            };
+
+
+            const runAggScan = async () => {
+                setAggScanning(true);
+                setAggResults(null);
+                try {
+                    const res = await fetch('/scan_aggressive');
+                    const json = await res.json();
+                    setAggResults(json.results);
+                } catch (e) { alert("Tarama hatası: " + e.message); }
+                setAggScanning(false);
+            };
+
+            const runVolumeScan = async () => {
+                setVolScanning(true);
+                setVolResults(null);
+                try {
+                    const res = await fetch('/scan_volume');
+                    const json = await res.json();
+                    setVolResults(json.results);
+                } catch (e) { alert("Hacim tarama hatası: " + e.message); }
+                setVolScanning(false);
+            };
+
+
+            const runCascadeScan = async () => {
+                if (cascadeScanning) return;
+                setCascadeScanning(true);
+                setCascadeResults(null);
+                try {
+                    const res = await fetch('/scan_cascade');
+                    const json = await res.json();
+                    setCascadeResults(json.results);
+                } catch (e) { alert("Strateji taraması başarısız: " + e.message); }
+                setCascadeScanning(false);
+            };
+
+            const runRsiSpecialScan = async () => {
+                setRsiSpecialScanning(true);
+                setRsiSpecialResults(null);
+                try {
+                    const res = await fetch('/scan_rsi_special');
+                    const json = await res.json();
+                    setRsiSpecialResults(json.results);
+                } catch (e) { alert("RSI tarama hatası: " + e.message); }
+                setRsiSpecialScanning(false);
+            };
+
+            const runSimScan = async () => {
+                setSimScanning(true);
+                setSimResults(null);
+                try {
+                    const res = await fetch('/scan_similarity');
+                    const json = await res.json();
+                    setSimResults(json.results);
+                } catch (e) { alert("Benzerlik Taraması Hatası: " + e.message); }
+                setSimScanning(false);
+            };
+
+            const runCheapScan = async () => {
+                setCheapScanning(true);
+                setCheapResults([]);
+                try {
+                    const res = await fetch('/scan_cheap');
+                    const json = await res.json();
+                    setCheapResults(json.results || []);
+                } catch (e) { alert("Ucuzluk taraması hatası: " + e.message); }
+                setCheapScanning(false);
+            };
+
+            // FAVORITES FUNCTIONS
+            const loadFavorites = async () => {
+                try {
+                    const res = await fetch('/api/favorites');
+                    const json = await res.json();
+                    setFavorites(json.favorites || {});
+                } catch (e) {
+                    console.error('Failed to load favorites:', e);
+                }
+            };
+
+            const addToFavorites = async (sym) => {
+                try {
+                    const res = await fetch('/api/favorites', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ symbol: sym })
+                    });
+                    const json = await res.json();
+                    if (json.success) {
+                        setFavorites(json.favorites);
+                    }
+                } catch (e) {
+                    alert('Favorilere eklenemedi: ' + e.message);
+                }
+            };
+
+            const removeFromFavorites = async (sym) => {
+                try {
+                    const res = await fetch(`/api/favorites/${sym}`, { method: 'DELETE' });
+                    const json = await res.json();
+                    if (json.success) {
+                        setFavorites(json.favorites);
+                        // Immediately remove from price tracking to stop alerts
+                        setFavoritePrices(prev => {
+                            const next = { ...prev };
+                            delete next[sym];
+                            return next;
+                        });
+                    }
+                } catch (e) {
+                    alert('Favorilerden çıkarılamadı: ' + e.message);
+                }
+            };
+
+            const updateAlerts = async (sym, alerts) => {
+                try {
+                    const res = await fetch(`/api/favorites/${sym}/alerts`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ alerts })
+                    });
+                    const json = await res.json();
+                    if (json.success) {
+                        setFavorites(json.favorites);
+                        setEditingAlerts(prev => ({ ...prev, [sym]: false }));
+
+                        // Optimistically clear triggered status to stop alarm immediately
+                        setFavoritePrices(prev => {
+                            if (!prev[sym]) return prev;
+                            return {
+                                ...prev,
+                                [sym]: {
+                                    ...prev[sym],
+                                    triggered_alerts: [] // Clear triggers until next fetch checks them
+                                }
+                            };
+                        });
+                    }
+                } catch (e) {
+                    alert('Alarm güncellenemedi: ' + e.message);
+                }
+            };
+
+            const updateFavoritePrices = async () => {
+                if (Object.keys(favorites).length === 0) return;
+                try {
+                    const res = await fetch('/api/favorites/prices');
+                    const json = await res.json();
+                    setFavoritePrices(json.prices || {});
+                } catch (e) {
+                    console.error('Failed to update favorite prices:', e);
+                }
+            };
+
+            // OTOMATİK TARAMA DEVRE DIŞI - MANUEL TARAMA KULLANIN
+            // useEffect(() => {
+            //     const timer = setInterval(() => {
+            //         runRsiSpecialScan();
+            //         console.log("Saatlik RSI Taraması Çalıştı");
+            //     }, 3600000); // 1 Saat = 3600000 ms
+            //     return () => clearInterval(timer);
+            // }, []);
+
+
+
+
+
+            // OTOMATİK ANALİZ YENİLEME DEVRE DIŞI - MANUEL TARAMA KULLANIN
+            // useEffect(() => {
+            //     if (!symbol) return;
+            //     const timer = setInterval(() => {
+            //         // Only run if we have data (analysis active)
+            //         if (dataRef.current) loadData(symbol, true, interval)
+            //     }, 60000); // 1 Minute
+            //     return () => clearInterval(timer);
+            // }, [symbol, interval]);
+
+            // Auto-Refresh Price (30 Seconds)
+            useEffect(() => {
+                if (!symbol) return;
+                const timer = setInterval(async () => {
+                    // Only proceed if we have data
+                    if (!dataRef.current) return;
+
+                    try {
+                        const res = await fetch(`/price?symbol=${symbol}`);
+                        const json = await res.json();
+                        const currentData = dataRef.current;
+
+                        if (!json.error && currentData && currentData.currentPrice) {
+                            // Update Price UI
+                            if (json.price !== currentData.currentPrice) {
+                                const oldP = currentData.currentPrice;
+                                if (json.price > oldP) { setFlash('up'); setTimeout(() => setFlash(null), 1000); }
+                                else if (json.price < oldP) { setFlash('down'); setTimeout(() => setFlash(null), 1000); }
+
+                                // Soft Update Data State
+                                setData(prev => ({ ...prev, currentPrice: json.price }));
+
+                                // Update Chart if Series Ready
+                                if (chartSeries.current) {
+                                    chartSeries.current.candles.update({
+                                        time: json.time,
+                                        open: json.open,
+                                        high: json.high,
+                                        low: json.low,
+                                        close: json.close
+                                    });
+                                    chartSeries.current.volume.update({
+                                        time: json.time,
+                                        value: json.volume,
+                                        color: json.close >= json.open ? 'rgba(0, 183, 70, 0.5)' : 'rgba(239, 64, 60, 0.5)'
+                                    });
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.log("Price poll error", e);
+                    }
+                }, 30000); // 30 Seconds
+                return () => clearInterval(timer);
+            }, [symbol]);
+
+            // Load stock names from API
+            useEffect(() => {
+                fetch('/api/stocks')
+                    .then(res => res.json())
+                    .then(stocks => {
+                        const names = {};
+                        stocks.forEach(s => names[s.symbol] = s.name);
+                        setStockNames(names);
+                    })
+                    .catch(e => console.error('Stock names load error:', e));
+            }, []);
+
+            // Load favorites on mount
+            useEffect(() => {
+                loadFavorites();
+            }, []);
+
+            // Update favorite prices every 60 seconds
+            useEffect(() => {
+                if (favorites.length === 0) return;
+
+                // Initial load
+                updateFavoritePrices();
+
+                // Set interval for updates
+                const timer = setInterval(() => {
+                    updateFavoritePrices();
+                }, 60000); // 60 seconds
+
+                return () => clearInterval(timer);
+            }, [favorites]);
+
+            // Initial Load for XU100
+            useEffect(() => {
+                setSymbol('XU100');
+                loadData('XU100');
+            }, []);
+
+            const [advResults, setAdvResults] = useState(null); // Advanced Analysis State
+
+            const loadData = async (sym, silent = false, intv = interval, mode = riskMode) => {
+                if (!sym) return;
+                try {
+                    // Parallel Fetch: Basic Analysis + Advanced Analysis
+                    const [resBasic, resAdv] = await Promise.all([
+                        fetch(`/analyze?symbol=${sym}&interval=${intv}&risk_mode=${mode}`),
+                        fetch(`/analyze_advanced?symbol=${sym}`)
+                    ]);
+
+                    const json = await resBasic.json();
+                    if (json.error) throw new Error(json.error);
+
+                    const jsonAdv = await resAdv.json(); // Advanced Data
+
+                    // LIMIT TO 1000 CANDLES
+                    if (json.ohlc && json.ohlc.length > 1000) {
+                        json.ohlc = json.ohlc.slice(-1000);
+                    }
+
+                    // 1. Ham veriye sinyalleri işleyelim (MODA GÖRE)
+                    const processedData = Engine.generateSignals(json.ohlc, mode);
+
+                    // 2. İşlenmiş veriyi ana objeye geri koyalım
+                    const finalData = { ...json, ohlc: processedData };
+
+                    // 3. Analizi çalıştır
+                    const analysis = Engine.run(finalData);
+
+                    // If analysis failed (empty data), stop
+                    if (!analysis) {
+                        if (!silent) alert("Yetersiz veri veya analiz yapılamadı.");
+                        return;
+                    }
+
+                    // Daily Change Calc
+                    const ohlc = json.ohlc;
+                    if (ohlc.length > 1) {
+                        const prev = ohlc[ohlc.length - 2].close;
+                        const currVal = ohlc[ohlc.length - 1].close;
+                        const pct = ((currVal - prev) / prev) * 100;
+                        setDailyChange(pct);
+                    }
+
+                    // Flash Logic
+                    if (dataRef.current && dataRef.current.currentPrice) {
+                        const oldP = dataRef.current.currentPrice;
+                        const newP = json.currentPrice;
+                        if (newP > oldP) { setFlash('up'); setTimeout(() => setFlash(null), 1000); }
+                        else if (newP < oldP) { setFlash('down'); setTimeout(() => setFlash(null), 1000); }
+                    }
+
+                    setData(finalData);
+                    setResult(analysis);
+                    setAdvResults(jsonAdv); // Set Advanced Data
+
+                    if (!silent) {
+                        setSymbol(json.symbol.replace('.IS', ''));
+                        setSug([]);
+                        setFlash(null);
+                        setIntervalVal(intv);
+                        setRiskMode(mode);
+                    }
+                } catch (e) { console.error(e); if (!silent) alert(e.message); }
+            };
+
+            const runManualScan = async () => {
+                if (manualScanning) return;
+                setManualScanning(true);
+                setManualScanResults(null);
+                try {
+                    const res = await fetch('/scan_last_day_buy');
+                    const data = await res.json();
+                    if (data.results) {
+                        setManualScanResults(data.results);
+                    }
+                } catch (e) {
+                    alert("Tarama hatası: " + e);
+                }
+                setManualScanning(false);
+            };
+
+            const handleSearch = (e) => {
+                const v = e.target.value.toUpperCase();
+                setSymbol(v);
+                // Search both by symbol and company name
+                setSug(v ? ALL_BIST.filter(s => {
+                    const name = stockNames[s] || '';
+                    return s.startsWith(v) || name.toUpperCase().includes(v);
+                }).slice(0, 10) : []);
+            };
+
+            // --- CHART DATA & INDICATOR PREPARATION ---
+            const chartData = useMemo(() => {
+                if (!data) return [];
+                // Backend returns the correct currency data in 'ohlc' field
+                return data.ohlc || [];
+            }, [data]);
+
+            const chartIndicators = useMemo(() => {
+                // 'result' is already calculated based on the loaded data (TL or USD) via Engine.run in loadData
+                return result;
+            }, [result]);
+
+            // --- RENDER SCORECARD ---
+            const ScoreItem = ({ label, score, max, info, status }) => {
+                const pct = (score / max) * 100;
+                const col = status === 'FAIL' ? 'bg-red-500' : pct === 100 ? 'bg-green-500' : pct > 50 ? 'bg-yellow-500' : 'bg-gray-600';
+                return (
+                    <div className="module-item p-4">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="font-bold text-gray-300">{label}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded text-black font-bold ${col}`}>
+                                {status || `${score}/${max}`}
+                            </span>
+                        </div>
+                        {score !== undefined && (
+                            <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
+                                <div className={`h-full ${col}`} style={{ width: `${pct}%` }}></div>
+                            </div>
+                        )}
+                        <div className="text-xs text-gray-500 mt-1">{info}</div>
+                    </div>
+                )
+            };
+
+
+
+            // MOBILE CONTROLS COMPONENT
+            const MobileControls = () => {
+                const indicators = [
+                    { id: 'sma', label: 'SMA', isActive: showSMA, toggle: () => setShowSMA(!showSMA) },
+                    { id: 'ema', label: 'EMA', isActive: showEMA, toggle: () => setShowEMA(!showEMA) },
+                    { id: 'bb', label: 'BB', isActive: showBollinger, toggle: () => setShowBollinger(!showBollinger) },
+                    { id: 'st', label: 'ST', isActive: showSuperTrend, toggle: () => setShowSuperTrend(!showSuperTrend) },
+                    { id: 'ich', label: 'ICH', isActive: showIchimoku, toggle: () => setShowIchimoku(!showIchimoku) },
+                ];
+
+                return (
+                    <div className={`
+                        mobile-controls fixed bottom-0 left-0 right-0 z-[60] bg-[#161a22] border-t border-[#232730] px-4 py-2 
+                        flex items-center gap-3 overflow-x-auto scrollbar-hide
+                        transition-all duration-300 transform
+                        ${mobileMenuOpen ? 'translate-y-full opacity-0' : 'translate-y-0 opacity-100'}
+                        md:hidden
+                    `} style={{ height: '60px', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+
+                        {/* Quick Interval - Simplified */}
+                        <div className="flex bg-[#0d1015] rounded border border-gray-700 p-0.5 shrink-0">
+                            {['60m', '4h', '1d'].map(t => (
+                                <button
+                                    key={t}
+                                    onClick={() => loadData(symbol, false, t)}
+                                    className={`px-2 py-1 text-[10px] font-bold rounded ${interval === t ? 'bg-blue-600 text-white' : 'text-gray-500'}`}
+                                >
+                                    {t.toUpperCase()}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="w-[1px] h-6 bg-gray-700 shrink-0"></div>
+
+                        {/* Indicators */}
+                        <div className="flex gap-2 shrink-0">
+                            {indicators.map(t => (
+                                <button
+                                    key={t.id}
+                                    onClick={t.toggle}
+                                    className={`
+                                        whitespace-nowrap px-3 py-1.5 rounded text-[10px] font-bold border transition-colors
+                                        ${t.isActive ? 'bg-blue-600 border-blue-500 text-white' : 'bg-[#0d1015] border-gray-700 text-gray-400'}
+                                    `}
+                                >
+                                    {t.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                );
+            };
+
+            // QR CODE MODAL
+            const QRModal = () => (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={() => setShowQR(false)}>
+                    <div className="bg-[#161a22] p-6 rounded-xl border border-gray-700 max-w-sm w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold text-white">Mobil Bağlantı</h3>
+                            <button onClick={() => setShowQR(false)} className="text-gray-400 hover:text-white"><i className="ri-close-line text-2xl"></i></button>
+                        </div>
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="bg-white p-2 rounded">
+                                <img src="/qr" alt="Scan QR" className="w-48 h-48" />
+                            </div>
+                            <div className="text-center">
+                                <p className="text-sm text-gray-400 mb-1">veya tarayıcınıza şunu yazın:</p>
+                                <div className="font-mono text-xl font-bold text-blue-400 bg-blue-900/20 px-3 py-1 rounded">
+                                    {serverIP}:5000
+                                </div>
+                            </div>
+                            <p className="text-xs text-center text-gray-500 mt-2">
+                                Telefonunuzun ve bilgisayarınızın aynı Wi-Fi ağında olduğundan emin olun.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="mobile-layout flex flex-col md:flex-row w-full h-full text-[#cfd8dc] overflow-hidden relative">
+                    {showQR && <QRModal />}
+                    {isMobile && <MobileControls />}
+
+                    {/* LEFT ANALYTICS PANEL (SIDEBAR / BOTTOM SHEET) */}
+                    <div className={`
+                        mobile-sidebar flex flex-col border-r border-[#232730] bg-[#11141a] z-[50] shadow-2xl transition-all duration-300
+                        md:w-[420px] md:relative md:translate-y-0
+                        ${isMobile ? 'fixed bottom-0 left-0 right-0 rounded-t-2xl border-t border-gray-700 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]' : ''}
+                        ${isMobile && !mobileMenuOpen ? 'h-[80px] hover:h-[90px]' : isMobile && mobileMenuOpen ? 'h-[85%]' : 'h-full'}
+                        ${isMobile && !mobileMenuOpen ? 'pb-[60px]' : ''} /* Space for controls */
+                    `}>
+                        {/* MOBILE DRAG HANDLE */}
+                        {isMobile && (
+                            <div
+                                className="mobile-drag-handle w-full flex justify-center py-3 cursor-pointer bg-[#161a22] rounded-t-2xl border-b border-gray-800 hover:bg-gray-800 transition-colors"
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            >
+                                <div className="w-12 h-1.5 bg-gray-600 rounded-full"></div>
+                            </div>
+                        )}
+
+                        {/* Header / Search */}
+                        <div className="p-6 border-b border-[#232730] bg-[#0E1015]">
+                            <div className="flex justify-between items-center mb-1">
+                                <div className="text-xs text-blue-500 font-bold tracking-widest">ANTIGRAVITY ENGINE</div>
+                                {!isMobile && (
+                                    <button
+                                        onClick={() => setShowQR(true)}
+                                        className="text-gray-400 hover:text-white px-2 py-1 rounded border border-gray-700 bg-[#161a22] text-xs flex items-center gap-1"
+                                    >
+                                        <i className="ri-qr-code-line"></i> TEL
+                                    </button>
+                                )}
+                                {isMobile && (
+                                    <button
+                                        onClick={() => setShowQR(true)}
+                                        className="text-gray-400 hover:text-white"
+                                    >
+                                        <i className="ri-qr-code-line text-xl"></i>
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* FAVORITES LIST WITH ALERTS */}
+                            <div className="mb-4 bg-[#0a0d12] rounded-lg border border-purple-900/30">
+                                {(() => {
+                                    // Check if any favorite has a triggered alert
+                                    const anyAlertTriggered = Object.values(favoritePrices).some(p => p.triggered_alerts && p.triggered_alerts.length > 0);
+
+                                    return (
+                                        <div
+                                            className="flex justify-between items-center p-3 cursor-pointer hover:bg-purple-900/10 transition-colors"
+                                            onClick={() => setFavoritesOpen(!favoritesOpen)}
+                                        >
+                                            <div className={`text-xs font-bold flex items-center gap-2 ${anyAlertTriggered ? 'text-yellow-500' : 'text-purple-400'}`}>
+                                                <i className={`ri-star-fill ${anyAlertTriggered ? 'animate-pulse' : ''}`}></i> FAVORİLERİM
+                                            </div>
+                                            <i className={`ri-arrow-${favoritesOpen ? 'up' : 'down'}-s-line text-purple-400`}></i>
+                                        </div>
+                                    );
+                                })()}
+
+                                {favoritesOpen && (
+                                    <div className="px-3 pb-3 space-y-2 max-h-80 overflow-y-auto scrollbar-thin">
+                                        {Object.keys(favorites).length === 0 ? (
+                                            <div className="text-[10px] text-gray-600 italic text-center py-4">
+                                                Henüz favori eklenmedi
+                                            </div>
+                                        ) : (
+                                            Object.entries(favorites).map(([sym, data]) => {
+                                                const priceData = favoritePrices[sym];
+                                                const currentPrice = priceData?.price;
+                                                const triggeredAlerts = priceData?.triggered_alerts || [];
+                                                const hasAlert = triggeredAlerts.length > 0;
+
+                                                return (
+                                                    <div key={sym} className="bg-[#161a22] rounded p-2 border border-gray-800">
+                                                        {/* Symbol and Price Row */}
+                                                        <div className="flex justify-between items-center mb-2">
+                                                            <div
+                                                                onClick={() => loadData(sym)}
+                                                                className="flex-1 cursor-pointer"
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-bold text-xs text-white">{sym}</span>
+                                                                    {hasAlert && (
+                                                                        <span className="text-yellow-500 animate-pulse" title="Alarm tetiklendi!">
+                                                                            ⚠️
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-[10px] text-gray-400 font-mono">
+                                                                    {currentPrice ? `${currentPrice.toFixed(2)} TL` : 'Yükleniyor...'}
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => removeFromFavorites(sym)}
+                                                                className="px-1.5 py-0.5 text-[10px] text-red-400 hover:bg-red-900/20 rounded transition-all"
+                                                            >
+                                                                <i className="ri-close-line"></i>
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Alert Inputs Row */}
+                                                        <div className="flex gap-1">
+                                                            {[0, 1, 2].map(idx => {
+                                                                // Use editingAlerts if available, otherwise use data.alerts
+                                                                const currentAlerts = editingAlerts[sym] || data.alerts;
+                                                                const alertValue = currentAlerts[idx];
+                                                                const isTriggered = triggeredAlerts.includes(idx);
+
+                                                                return (
+                                                                    <input
+                                                                        key={idx}
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        min="0"
+                                                                        placeholder={`${idx + 1}`}
+                                                                        value={alertValue || ''}
+                                                                        onClick={(e) => {
+                                                                            // Prevent click from bubbling to parent elements
+                                                                            e.stopPropagation();
+                                                                        }}
+                                                                        onChange={(e) => {
+                                                                            const newAlerts = [...(editingAlerts[sym] || data.alerts)];
+                                                                            newAlerts[idx] = e.target.value ? parseFloat(e.target.value) : null;
+                                                                            setEditingAlerts(prev => ({ ...prev, [sym]: newAlerts }));
+                                                                        }}
+                                                                        onBlur={() => {
+                                                                            if (editingAlerts[sym]) {
+                                                                                updateAlerts(sym, editingAlerts[sym]);
+                                                                            }
+                                                                        }}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter') {
+                                                                                e.target.blur();
+                                                                            }
+                                                                        }}
+                                                                        className={`flex-1 min-w-0 bg-[#0d1015] text-[10px] text-center text-gray-300 border rounded px-1 py-1 outline-none focus:border-purple-500 ${isTriggered ? 'border-yellow-500 bg-yellow-900/20' : 'border-gray-700'
+                                                                            }`}
+                                                                    />
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="relative">
+                                {/* Search Box */}
+                                <input className="search-box" placeholder="HİSSE"
+                                    value={symbol} onChange={handleSearch}
+                                    onKeyDown={e => e.key === 'Enter' && loadData(symbol)}
+                                />
+                                {sug.length > 0 && (
+                                    <div className="absolute top-full left-0 w-full bg-[#161b22] border border-gray-700 rounded z-50 shadow-xl max-h-64 overflow-y-auto">
+                                        {sug.map(s => (
+                                            <div key={s} onClick={() => loadData(s)} className="p-3 hover:bg-blue-600 cursor-pointer">
+                                                <div className="font-bold text-sm text-white">{s}</div>
+                                                <div className="text-xs text-gray-400">{stockNames[s] || s}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            {data && <div className="mt-2 text-[10px] text-gray-500 font-bold truncate max-w-[200px]">{data.fundamentals?.name}</div>}
+
+                            {/* Add to Favorites Button */}
+                            {symbol && data && (
+                                <div className="mt-2">
+                                    {favorites[symbol] ? (
+                                        <button
+                                            onClick={() => removeFromFavorites(symbol)}
+                                            className="w-full px-2 py-1.5 text-[10px] bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-600/50 rounded font-bold transition-colors flex items-center justify-center gap-1"
+                                        >
+                                            <i className="ri-star-fill"></i> Favorilerden Çıkar
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => addToFavorites(symbol)}
+                                            className="w-full px-2 py-1.5 text-[10px] bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 border border-purple-600/50 rounded font-bold transition-colors flex items-center justify-center gap-1"
+                                        >
+                                            <i className="ri-star-line"></i> Favorilere Ekle
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* RISK MODE SELECTOR & VIEW MODE */}
+                            <div className="mt-4 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] text-gray-500 font-bold">MOD:</span>
+                                    <select
+                                        value={riskMode}
+                                        onChange={(e) => {
+                                            setRiskMode(e.target.value);
+                                            if (symbol) loadData(symbol, false, interval, e.target.value);
+                                        }}
+                                        className="bg-[#161a22] text-xs text-gray-300 border border-[#232730] rounded px-2 py-1 outline-none hover:border-gray-500"
+                                    >
+                                        <option value="conservative">TUTUCU (Önerilen)</option>
+                                        <option value="aggressive">AGRESİF (Riskli)</option>
+                                    </select>
+                                </div>
+
+                                {/* VIEW MODE TOGGLE */}
+                                <div className="flex bg-[#161a22] rounded border border-[#232730] p-0.5">
+                                    <button
+                                        onClick={() => setViewMode('simple')}
+                                        className={`px-2 py-1 text-[10px] font-bold rounded ${viewMode === 'simple' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                    >
+                                        BASİT
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('pro')}
+                                        className={`px-2 py-1 text-[10px] font-bold rounded ${viewMode === 'pro' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                                    >
+                                        PRO
+                                    </button>
+                                </div>
+                            </div>
+
+                            {riskMode === 'conservative' && (
+                                <div className="mt-1 text-[9px] text-green-500 flex items-center gap-1">
+                                    <i className="ri-shield-check-line"></i> Filtreler Aktif (EMA200 + ADX)
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Analysis Content */}
+                        <div className="flex-1 overflow-y-auto scrollbar-hide">
+                            {!result ? (
+                                <div className="p-10 text-center opacity-30 mt-20">
+                                    <div className="text-6xl mb-4">🧠</div>
+                                    <p>Hisse Kodu Girerek<br />Analizi Başlatın</p>
+                                </div>
+                            ) : (
+                                <div>
+                                    {/* Main Score Check */}
+                                    <div className="p-6 text-center border-b border-[#232730] bg-[#161a22]">
+                                        <div className="text-sm text-gray-400 mb-2">GENEL SKOR</div>
+                                        <div className={`text-6xl font-black ${result.scores.total >= 75 ? 'text-green-500' : result.scores.total >= 60 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                            {result.scores.total}
+                                        </div>
+                                        <div className={`mt-2 inline-block px-3 py-1 rounded text-sm font-black tracking-wider ${result.signal.color} ${result.signal.bg}`}>
+                                            {result.signal.label}
+                                        </div>
+                                        <div className="text-xs tracking-widest opacity-50 mt-1">%100 ÜZERİNDEN</div>
+
+                                        {/* SIMPLE MODE SUMMARY TEXT */}
+                                        {viewMode === 'simple' && (
+                                            <div className="mt-4 text-xs text-gray-400 px-4">
+                                                {result.scores.total >= 60 ?
+                                                    "Temel ve teknik veriler olumlu görünüyor." :
+                                                    "Risk seviyesi yüksek, dikkatli olunmalı."}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* PRO MODE CONTENT */}
+                                    {viewMode === 'pro' && (
+                                        <>
+                                            {/* STRATEGY SUMMARY CARD (MOVED) */}
+                                            {data?.trade_plan ? (
+                                                <div className="p-4 bg-[#11141a] border-b border-[#232730] shadow-inner">
+                                                    <div className="text-xs font-bold text-blue-500 mb-3 tracking-widest border-b border-gray-800 pb-2">STRATEJİ ÖZETİ</div>
+
+                                                    <div className="space-y-3">
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span className="text-gray-400">Giriş (Mevcut)</span>
+                                                            <span className="font-mono font-bold text-white">{data.currentPrice?.toFixed(2)} TL</span>
+                                                        </div>
+
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span className="text-orange-400 flex items-center gap-1"><i className="ri-shield-line"></i> Stop (İz Süren)</span>
+                                                            <span className="font-mono font-bold text-orange-400">
+                                                                {data.trade_plan?.stop_loss ? data.trade_plan.stop_loss.toFixed(2) : '-'} TL
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="flex justify-between items-center text-sm">
+                                                            <span className="text-green-400 flex items-center gap-1"><i className="ri-target-line"></i> Hedef (1:2)</span>
+                                                            <span className="font-mono font-bold text-green-400">
+                                                                {data.trade_plan?.take_profit ? data.trade_plan.take_profit.toFixed(2) : '-'} TL
+                                                            </span>
+                                                        </div>
+
+                                                        <div className="mt-2 pt-2 border-t border-gray-800">
+                                                            <div className="flex justify-between items-center text-xs">
+                                                                <span className="text-gray-500">Trend Durumu</span>
+                                                                {result?.signal && result.signal.label !== 'SAT' && result.signal.label !== 'GÜÇLÜ SAT' ? (
+                                                                    <span className="text-green-500 font-bold flex items-center gap-1">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> GÜÇLÜ
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-red-500 font-bold flex items-center gap-1">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> ZAYIF
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : null}
+
+                                            {/* Modules */}
+                                            <ScoreItem label="1. FİLTRE" status="PASS" info="Hacim, ATR, Spekülasyon: Temiz" />
+                                            <ScoreItem label="2. YÖN" score={result?.scores?.sDir} max={25} info={`Bulut Durumu: ${result?.cloudStatus}`} />
+                                            <ScoreItem label="3. YAPI" score={result?.scores?.sStr} max={10} info="Fibonacci & Destek" />
+                                            <ScoreItem label="4. MOMENTUM" score={result?.scores?.sMom} max={15} info="Hacim Profili" />
+                                            <ScoreItem label="5. MUM TETİĞİ" score={result?.scores?.sBias} max={20} info={`Formasyon: ${result?.pattern}`} />
+                                            <ScoreItem label="6. KATALİZÖR" score={result?.scores?.sCat} max={15} info="Haber Akışı (Auto)" />
+                                            <ScoreItem label="7. RİSK" score={result?.scores?.sRisk} max={15} info={`R/R: ${result?.risk?.rr?.toFixed(2)}`} />
+
+                                            {/* Trade Plan */}
+                                            <div className="p-5 bg-[#0d1015] border-t border-[#232730] space-y-3">
+                                                <div className="text-xs font-bold text-gray-500 mb-2">İŞLEM PLANI (AUTO)</div>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-gray-400">Giriş</span>
+                                                    <span className="font-mono text-white">{result?.risk?.zoneLow?.toFixed(2)} - {result?.risk?.zoneHigh?.toFixed(2)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-red-400">Stop (%{(result?.risk?.riskPct * 100)?.toFixed(1)})</span>
+                                                    <span className="font-mono text-red-400">{result?.risk?.stop?.toFixed(2)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-green-400">Hedef</span>
+                                                    <span className="font-mono text-green-400 font-bold">{result?.risk?.target?.toFixed(2)}</span>
+                                                </div>
+
+                                                {/* RSI WIDGET */}
+                                                <div className="mt-2 pt-2 border-t border-gray-800 flex justify-between items-center">
+                                                    <span className="text-xs text-purple-400 font-bold">RSI (14)</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-sm font-black ${result.rsi > 70 ? 'text-red-500' : result.rsi < 30 ? 'text-green-500' : 'text-gray-400'}`}>
+                                                            {result.rsi?.toFixed(1)}
+                                                        </span>
+                                                        <span className="text-xs text-gray-500 bg-gray-800 px-1 rounded">{result.rsiSlope}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* --- ADVANCED ANALYSIS WIDGET --- */}
+                                            {advResults && (
+                                                <div className="p-4 border-t border-[#232730] bg-[#161a22]">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <div className="text-xs font-bold text-purple-400 tracking-widest flex items-center gap-2">
+                                                            <i className="ri-magic-line"></i> YAPAY ZEKA DRONE
+                                                        </div>
+                                                    </div>
+
+                                                    {/* VOLUME SCAN RESULTS */}
+                                                    {volResults && (
+                                                        <div className="mb-4 bg-purple-900/10 border border-purple-500/30 rounded p-2">
+                                                            <div className="text-[10px] font-bold text-purple-400 mb-2 flex justify-between">
+                                                                <span>HACİM FIRSATLARI</span>
+                                                                <span className="cursor-pointer hover:text-white" onClick={() => setVolResults(null)}>✕</span>
+                                                            </div>
+                                                            {volResults.length === 0 ? (
+                                                                <div className="text-xs text-gray-500 italic text-center pb-1">Kriterlere uygun hisse bulunamadı.</div>
+                                                            ) : (
+                                                                <div className="space-y-1 max-h-32 overflow-y-auto">
+                                                                    {volResults.map(r => (
+                                                                        <div key={r.symbol} onClick={() => loadData(r.symbol)} className="flex justify-between items-center bg-[#0d1015] p-1.5 rounded cursor-pointer hover:bg-gray-800">
+                                                                            <span className="font-bold text-xs text-white">{r.symbol.replace('.IS', '')}</span>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="text-[10px] text-gray-400">{r.price.toFixed(2)}</span>
+                                                                                <span className="text-xs font-black text-purple-400 px-1 bg-purple-900/30 rounded">{r.vol_ratio}x</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* 1. SIMILARITY */}
+                                                    {advResults.similarity && (
+                                                        <div className="mb-4 bg-[#0d1015] p-3 rounded border border-gray-800">
+                                                            <div className="text-[10px] text-gray-500 font-bold mb-1">GEÇMİŞ BENZERLİK</div>
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-xs text-gray-400">{advResults.similarity.date}</span>
+                                                                <span className={`text-xs font-bold ${advResults.similarity.score > 80 ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                                    %{advResults.similarity.score} Eşleşme
+                                                                </span>
+                                                            </div>
+                                                            <div className="mt-1 text-xs">
+                                                                Sonraki 5 Gün: <span className={advResults.similarity.outcome > 0 ? 'text-green-500 font-bold' : 'text-red-500 font-bold'}>%{advResults.similarity.outcome}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* 2. SUPPORT / RESISTANCE */}
+                                                    <div className="mb-4">
+                                                        <div className="text-[10px] text-gray-500 font-bold mb-1">KRİTİK SEVİYELER (CLUSTER)</div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {advResults.sr_levels && advResults.sr_levels.map((lvl, i) => (
+                                                                <div key={i} className={`px-2 py-1 rounded text-[10px] font-bold border ${lvl.type === 'RESISTANCE' ? 'border-red-900 text-red-400 bg-red-900/10' : 'border-green-900 text-green-400 bg-green-900/10'}`}>
+                                                                    {lvl.price.toFixed(2)}
+                                                                </div>
+                                                            ))}
+                                                            {(!advResults.sr_levels || advResults.sr_levels.length === 0) && <span className="text-xs text-gray-600">Tespit edilemedi</span>}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* 3. SUPPLY / DEMAND */}
+                                                    <div className="mb-4">
+                                                        <div className="text-[10px] text-gray-500 font-bold mb-1">ARZ / TALEP BÖLGELERİ</div>
+                                                        <div className="space-y-1">
+                                                            {advResults.sd_zones && advResults.sd_zones.map((z, i) => (
+                                                                <div key={i} className={`flex flex-col text-[10px] px-2 py-1.5 rounded mb-1 ${z.type === 'SUPPLY' ? 'bg-red-500/10 text-red-500' : 'bg-green-500/10 text-green-500'}`}>
+                                                                    <div className="flex justify-between font-bold">
+                                                                        <span>{z.type === 'SUPPLY' ? 'ARZ (Pahalı Bölge -> SAT)' : 'TALEP (Ucuzluk Pazarı -> AL)'}</span>
+                                                                        <span className="font-mono text-xs text-white">{z.bottom.toFixed(2)} - {z.top.toFixed(2)}</span>
+                                                                    </div>
+                                                                    <div className="text-[9px] opacity-70 italic mt-0.5">
+                                                                        {z.type === 'SUPPLY' ? 'Fiyatın zorlanacağı direnç alanı.' : 'Fiyatın destek bulacağı alım alanı.'}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            {(!advResults.sd_zones || advResults.sd_zones.length === 0) && <span className="text-xs text-gray-600">Yakın bölge yok</span>}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* --- EXPERT FEATURES (NEW) --- */}
+
+                                                    {/* 4. RELATIVE STRENGTH (RS) */}
+                                                    {advResults.rs && (
+                                                        <div className="mb-4 bg-[#0d1015] p-3 rounded border border-gray-800">
+                                                            <div className="text-[10px] text-gray-500 font-bold mb-1">ENDEKS GÖRECİLİ GÜÇ (RS)</div>
+                                                            <div className="flex justify-between items-center mb-1">
+                                                                <span className="text-xs text-gray-400">Durum</span>
+                                                                <span className={`text-xs font-bold ${advResults.rs.outperforming ? 'text-green-500' : 'text-red-500'}`}>
+                                                                    {advResults.rs.outperforming ? 'ENDEKSİ YENİYOR' : 'ENDEKSTEN KÖTÜ'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-xs text-gray-400">RS Eğimi (10g)</span>
+                                                                <span className={`text-xs font-mono ${advResults.rs.slope > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                                                    {advResults.rs.slope > 0 ? '↗' : '↘'} %{advResults.rs.slope}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* 5. SENTIMENT ANALYSIS */}
+                                                    {advResults.sentiment && (
+                                                        <div className="mb-4">
+                                                            <div className="text-[10px] text-gray-500 font-bold mb-1">HABER DUYGU ANALİZİ (NLP)</div>
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex-1 bg-gray-800 h-2 rounded-full overflow-hidden">
+                                                                    <div className={`h-full ${advResults.sentiment.score > 0 ? 'bg-green-500' : advResults.sentiment.score < 0 ? 'bg-red-500' : 'bg-yellow-500'}`} style={{ width: '100%' }}></div>
+                                                                </div>
+                                                                <span className={`text-xs font-bold ${advResults.sentiment.score > 0 ? 'text-green-500' : 'text-red-500'}`}>{advResults.sentiment.label}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* 6. SEASONALITY HEATMAP */}
+                                                    {advResults.seasonality && (
+                                                        <div className="mb-4">
+                                                            <div className="text-[10px] text-gray-500 font-bold mb-1">MEVSİMSELLİK (AYLIK GETİRİ)</div>
+                                                            <div className="grid grid-cols-4 gap-1">
+                                                                {advResults.seasonality.map((m, i) => (
+                                                                    <div key={i} className={`text-[9px] text-center p-1 rounded ${m.avg_return > 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                                        <div className="font-bold">{m.month.substr(0, 3)}</div>
+                                                                        <div>%{m.avg_return}</div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                </div>
+                                            )}
+
+                                            {/* CASCADE STRATEGY FLOW */}
+                                            {/* CASCADE STRATEGY FLOW (UPDATED) */}
+                                            <div className="p-5 border-t border-[#232730] space-y-3 bg-[#0d1015]">
+                                                <div className="text-xs font-bold text-blue-500 mb-2">ÇOKLU ZAMAN DİLİMİ (CASCADE V2)</div>
+                                                {data.cascade ? (
+                                                    <div className="space-y-3">
+                                                        {/* 1. DAILY DIRECTION */}
+                                                        <div className="flex justify-between items-center bg-[#161a22] p-2 rounded border border-gray-800">
+                                                            <span className="text-xs text-gray-400 font-bold">1. GÜNLÜK YÖN (SMA+BULUT)</span>
+                                                            <span className={`text-xs font-black ${data.cascade.direction === 'LONG' ? 'text-green-500' : data.cascade.direction === 'SHORT' ? 'text-red-500' : 'text-gray-500'}`}>
+                                                                {data.cascade.direction === 'NEUTRAL' ? 'NÖTR (PASİF)' : data.cascade.direction === 'LONG' ? 'YUKARI' : data.cascade.direction === 'SHORT' ? 'AŞAĞI' : data.cascade.direction}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* IF NEUTRAL, STOP VIEW */}
+                                                        {data.cascade.direction === 'NEUTRAL' ? (
+                                                            <div className="text-center text-[10px] text-gray-600 italic py-2">
+                                                                Fiyat SMA50/200 aynı tarafında değil veya Bulut içinde. İşlem Yok.
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                {/* 2. 4H SETUP */}
+                                                                <div className={`p-2 rounded border ${data.cascade.setup_active ? 'border-gray-600 bg-gray-800' : 'border-gray-800 bg-[#161a22] opacity-50'}`}>
+                                                                    <div className="flex justify-between items-center mb-1">
+                                                                        <span className="text-xs text-gray-300 font-bold">2. 4H KURULUM (SETUP)</span>
+                                                                        <span className={`text-[10px] font-bold ${data.cascade.signal_strength === 'gray' ? 'text-white' : 'text-gray-500'}`}>
+                                                                            {data.cascade.setup_active ? 'BÖLGEDE' : 'BEKLİYOR'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="text-[9px] text-gray-500">
+                                                                        RSI 40-55 | Hacim Düşük | Bulut Destek
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* 3. 1H TRIGGER */}
+                                                                <div className={`p-2 rounded border ${data.cascade.trigger_active ? 'border-green-500 bg-green-900/20' : 'border-gray-800 bg-[#161a22]'}`}>
+                                                                    <div className="flex justify-between items-center mb-1">
+                                                                        <span className="text-xs text-gray-300 font-bold">3. 1H TETİK (TRIGGER)</span>
+                                                                        {/* SIGNAL STRENGTH DOTS */}
+                                                                        <div className="flex gap-1">
+                                                                            <span className={`w-2 h-2 rounded-full ${['gray', 'yellow', 'green'].includes(data.cascade.signal_strength) ? 'bg-gray-400' : 'bg-gray-800'}`}></span>
+                                                                            <span className={`w-2 h-2 rounded-full ${['yellow', 'green'].includes(data.cascade.signal_strength) ? 'bg-yellow-400' : 'bg-gray-800'}`}></span>
+                                                                            <span className={`w-2 h-2 rounded-full ${['green'].includes(data.cascade.signal_strength) ? 'bg-green-500 shadow-lg shadow-green-500/50' : 'bg-gray-800'}`}></span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-[9px] text-gray-500">
+                                                                        RSI Kırılım | Hacim Artış | Mum
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* 4. TRADE LEVELS (IF TRIGGERED OR SETUP READY) */}
+                                                                {(data.cascade.setup_active || data.cascade.trigger_active) && data.cascade.levels && (
+                                                                    <div className="mt-2 text-xs grid grid-cols-3 gap-2 text-center">
+                                                                        <div className="bg-red-500/10 p-1 rounded">
+                                                                            <div className="text-red-500 font-bold">{data.cascade.levels.stop}</div>
+                                                                            <div className="text-[8px] text-gray-500">STOP</div>
+                                                                        </div>
+                                                                        <div className="bg-blue-500/10 p-1 rounded">
+                                                                            <div className="text-blue-400 font-bold">{data.cascade.levels.price}</div>
+                                                                            <div className="text-[8px] text-gray-500">GİRİŞ</div>
+                                                                        </div>
+                                                                        <div className="bg-green-500/10 p-1 rounded">
+                                                                            <div className="text-green-500 font-bold">{data.cascade.levels.target}</div>
+                                                                            <div className="text-[8px] text-gray-500">HEDEF (3R)</div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center text-gray-500 text-xs">Hesaplanıyor...</div>
+                                                )}
+                                            </div>
+
+                                            {/* CASCADE STRATEGY SCANNER (NEW) */}
+                                            <div className="p-5 border-t border-[#232730] bg-[#0d1015]">
+                                                <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleScan('cascade')}>
+                                                    <div className="text-xs font-bold text-teal-400 flex items-center gap-2">
+                                                        <i className={`ri-arrow-${scanVisibility.cascade ? 'up' : 'down'}-s-line text-lg`}></i>
+                                                        STRATEJİ TARAMA (30DK)
+                                                    </div>
+                                                    <button onClick={(e) => { e.stopPropagation(); runCascadeScan(); }} disabled={cascadeScanning} className="px-2 py-1 text-[10px] bg-teal-600 hover:bg-teal-700 text-white rounded font-bold transition-colors disabled:opacity-50">
+                                                        {cascadeScanning ? 'TARANIYOR...' : 'TARA'}
+                                                    </button>
+                                                </div>
+
+                                                {scanVisibility.cascade && (
+                                                    <div className="mt-3 space-y-3">
+                                                        {cascadeResults && (
+                                                            <div className="max-h-52 overflow-y-auto pr-1 scrollbar-thin">
+                                                                <div className="text-[10px] text-gray-500 mb-2">
+                                                                    {cascadeResults.length} Fırsat (Yeşil: Giriş, Sarı: Hazırlık)
+                                                                </div>
+                                                                <div className="space-y-2">
+                                                                    {cascadeResults.map(r => (
+                                                                        <div key={r.symbol} onClick={() => loadData(r.symbol, false, '4h')}
+                                                                            className={`p-2 rounded cursor-pointer border hover:bg-[#232730] transition-colors ${r.strength === 'green' ? 'border-green-500/50 bg-green-900/10' : 'border-yellow-500/50 bg-yellow-900/10'}`}>
+
+                                                                            <div className="flex justify-between items-center">
+                                                                                <div className="font-bold text-xs text-white flex items-center gap-2">
+                                                                                    {r.symbol}
+                                                                                    {r.strength === 'green' && <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>}
+                                                                                </div>
+                                                                                <div className="text-[10px] font-mono">{r.price.toFixed(2)}</div>
+                                                                            </div>
+
+                                                                            <div className="flex justify-between items-center mt-1">
+                                                                                <div className="text-[9px] text-gray-400">{r.msg}</div>
+                                                                                <div className={`text-[9px] font-bold ${r.strength === 'green' ? 'text-green-500' : 'text-yellow-500'}`}>
+                                                                                    {r.strength === 'green' ? 'AL' : 'H'}
+                                                                                </div>
+                                                                            </div>
+
+                                                                            {/* Targets */}
+                                                                            {r.strength === 'green' && (
+                                                                                <div className="mt-1 pt-1 border-t border-gray-700/30 flex justify-between text-[8px] text-gray-500">
+                                                                                    <span>Hedef: {r.target.toFixed(2)}</span>
+                                                                                    <span>Stop: {r.stop.toFixed(2)}</span>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {cascadeScanning && (
+                                                            <div className="text-[10px] text-gray-500 italic animate-pulse">
+                                                                Arka planda tüm hisseler analiz ediliyor...
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* CHEAP SCORE SCANNER (NEW) */}
+                                            <div className="p-5 border-t border-[#232730] bg-[#0d1015]">
+                                                <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleScan('cheap')}>
+                                                    <div className="text-xs font-bold text-orange-400 flex items-center gap-2">
+                                                        <i className={`ri-arrow-${scanVisibility.cheap ? 'up' : 'down'}-s-line text-lg`}></i>
+                                                        UCUZLUK TARAMASI (DİP)
+                                                    </div>
+                                                    <button onClick={(e) => { e.stopPropagation(); runCheapScan(); }} disabled={cheapScanning} className="px-2 py-1 text-[10px] bg-orange-600 hover:bg-orange-700 text-white rounded font-bold transition-colors disabled:opacity-50">
+                                                        {cheapScanning ? 'TARANIYOR...' : 'TARA'}
+                                                    </button>
+                                                </div>
+
+                                                {scanVisibility.cheap && (
+                                                    <div className="mt-3 space-y-3">
+                                                        {/* CHEAP SCAN RESULTS */}
+                                                        {cheapResults.length > 0 ? (
+                                                            <div className="mt-2 text-xs space-y-1 max-h-40 overflow-y-auto scrollbar-hide">
+                                                                {cheapResults.map((r, i) => (
+                                                                    <div key={i} onClick={() => { setSymbol(r.symbol); loadData(r.symbol); }} className="p-2 bg-[#161a22] rounded flex justify-between items-center cursor-pointer hover:bg-gray-800 transition-colors">
+                                                                        <div>
+                                                                            <div className="font-bold text-white">{r.symbol}</div>
+                                                                            <div className="text-[9px] text-gray-500">{r.price} TL</div>
+                                                                        </div>
+                                                                        <div className="flex flex-col items-end gap-1">
+                                                                            <div className={`text-[9px] px-1.5 py-0.5 rounded font-black ${r.score >= 6 ? 'bg-green-500 text-black' : 'bg-orange-500 text-black'}`}>
+                                                                                {r.status} ({r.score})
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="text-[10px] text-gray-600 italic text-center">
+                                                                Sonuçlar burada listelenir. (Puan 4+)
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* VOLUME SCANNER WIDGET */}
+                                            <div className="p-5 border-t border-[#232730] bg-[#0d1015]">
+                                                <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleScan('vol')}>
+                                                    <div className="text-xs font-bold text-purple-500 flex items-center gap-2">
+                                                        <i className={`ri-arrow-${scanVisibility.vol ? 'up' : 'down'}-s-line text-lg`}></i>
+                                                        HACİM FIRSATLARI (Fiyat/Hacim Şişmesi)
+                                                    </div>
+                                                    <button onClick={(e) => { e.stopPropagation(); runVolumeScan(); }} className="px-2 py-1 text-[10px] bg-purple-600 hover:bg-purple-700 text-white rounded font-bold transition-colors">
+                                                        {volScanning ? 'TARANIYOR...' : 'BAŞLAT'}
+                                                    </button>
+                                                </div>
+
+                                                {scanVisibility.vol && (
+                                                    <div className="mt-3 space-y-3">
+                                                        {volResults && (
+                                                            <div className="max-h-40 overflow-y-auto pr-1 scrollbar-thin">
+                                                                <div className="text-[10px] text-gray-500 mb-2">
+                                                                    {volResults.length} Fırsat (Hacim {'>'} 1.5x Ort)
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    {volResults.map(r => (
+                                                                        <div key={r.symbol} onClick={() => loadData(r.symbol)}
+                                                                            className="bg-[#161a22] hover:bg-[#232730] p-2 rounded cursor-pointer border border-purple-900/30">
+                                                                            <div className="font-bold text-xs text-white">{r.symbol}</div>
+                                                                            <div className="flex justify-between items-center text-[9px] mt-1">
+                                                                                <span className="text-gray-400">{r.price.toFixed(2)}</span>
+                                                                                <div className="text-right">
+                                                                                    <span className="block text-purple-400 font-bold">{r.vol_ratio}x Vol</span>
+                                                                                    <span className="block text-[8px] text-gray-500">
+                                                                                        {r.days_ago === 0 ? "BUGÜN" : r.days_ago === 1 ? "DÜN" : `${r.days_ago} GÜN ÖNCE`}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {volScanning && (
+                                                            <div className="text-[10px] text-gray-500 italic animate-pulse">
+                                                                Hacim patlamaları taranıyor...
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* SCANNER WIDGET */}
+                                            <div className="p-5 border-t border-[#232730] bg-[#0d1015]">
+                                                <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleScan('market')}>
+                                                    <div className="text-xs font-bold text-yellow-500 flex items-center gap-2">
+                                                        <i className={`ri-arrow-${scanVisibility.market ? 'up' : 'down'}-s-line text-lg`}></i>
+                                                        PİYASA TARAYICISI (1H)
+                                                    </div>
+                                                    <button onClick={(e) => { e.stopPropagation(); runScan(); }} className="px-2 py-1 text-[10px] bg-blue-600 hover:bg-blue-700 text-white rounded font-bold transition-colors">
+                                                        {scanning ? 'TARANIYOR...' : 'BAŞLAT'}
+                                                    </button>
+                                                </div>
+
+                                                {scanVisibility.market && (
+                                                    <div className="mt-3 space-y-3">
+                                                        {scanResults && (
+                                                            <div className="max-h-40 overflow-y-auto pr-1 scrollbar-thin">
+                                                                <div className="text-[10px] text-gray-500 mb-2">
+                                                                    {scanResults.length} Sinyal Bulundu
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    {scanResults.map(r => (
+                                                                        <div key={r.symbol} onClick={() => loadData(r.symbol)}
+                                                                            className="bg-[#161a22] hover:bg-[#232730] p-2 rounded cursor-pointer border border-green-900/30">
+                                                                            <div className="font-bold text-xs text-white">{r.symbol}</div>
+                                                                            <div className="text-[9px] text-green-400 font-mono">AKTİF</div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {scanning && (
+                                                            <div className="text-[10px] text-gray-500 italic animate-pulse">
+                                                                Tüm piyasa taranıyor, lütfen bekleyin... (30sn)
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+
+                                            {/* --- ÖZEL RSI 20/80 TARAYICISI --- */}
+                                            <div className="p-5 border-t border-[#232730] bg-[#11141a]">
+                                                <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleScan('rsi')}>
+                                                    <div className="text-xs font-bold text-blue-400 flex items-center gap-2">
+                                                        <i className={`ri-arrow-${scanVisibility.rsi ? 'up' : 'down'}-s-line text-lg`}></i>
+                                                        ÖZEL RSI TARAMASI (20/80)
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); runRsiSpecialScan(); }}
+                                                        className="px-2 py-1 text-[10px] bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-600/50 rounded font-bold transition-colors"
+                                                    >
+                                                        {rsiSpecialScanning ? 'TARANIYOR...' : 'MANUEL TARA'}
+                                                    </button>
+                                                </div>
+
+                                                {scanVisibility.rsi && (
+                                                    <div className="mt-3 space-y-3">
+                                                        <div className="text-[9px] text-gray-500 italic">
+                                                            * 1 Saatte bir otomatik taranır. (80 Kesişimi: SAT / 20 Dönüşü: AL)
+                                                        </div>
+
+                                                        {rsiSpecialResults && (
+                                                            <div className="max-h-40 overflow-y-auto pr-1 scrollbar-thin space-y-1">
+                                                                {rsiSpecialResults.length === 0 ? (
+                                                                    <div className="text-xs text-gray-600 text-center">Kriterlere uyan hisse yok.</div>
+                                                                ) : (
+                                                                    rsiSpecialResults.map((r, i) => (
+                                                                        <div key={i} onClick={() => loadData(r.symbol)} className="flex justify-between items-center bg-[#0d1015] p-2 rounded cursor-pointer border border-gray-800 hover:border-gray-600">
+                                                                            <div className="font-bold text-xs text-white">{r.symbol}</div>
+                                                                            <div className="text-right">
+                                                                                <div className={`text-[10px] font-black ${r.signal === 'AL' ? 'text-green-500' : 'text-red-500'}`}>
+                                                                                    {r.signal} (RSI: {r.rsi.toFixed(1)})
+                                                                                </div>
+                                                                                <div className="text-[8px] text-gray-500">{r.desc}</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* --- SON GÜN ÖZEL MANUEL TARAMA (NEW) --- */}
+                                            <div className="p-5 border-t border-[#232730] bg-[#13111a]">
+                                                <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleScan('manual')}>
+                                                    <div className="text-xs font-bold text-pink-500 flex items-center gap-2">
+                                                        <i className={`ri-arrow-${scanVisibility.manual ? 'up' : 'down'}-s-line text-lg`}></i>
+                                                        SON GÜN ÖZEL MANUEL TARAMA
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); runManualScan(); }}
+                                                        className="px-2 py-1 text-[10px] bg-pink-600/20 hover:bg-pink-600/40 text-pink-400 border border-pink-600/50 rounded font-bold transition-colors"
+                                                    >
+                                                        {manualScanning ? 'TARANIYOR...' : 'MANUEL TARA'}
+                                                    </button>
+                                                </div>
+
+                                                {scanVisibility.manual && (
+                                                    <div className="mt-3 space-y-3">
+                                                        <div className="text-[9px] text-gray-500 italic">
+                                                            * Son 2 günde AL verenleri bulur.
+                                                        </div>
+
+                                                        {manualScanResults && (
+                                                            <div className="max-h-40 overflow-y-auto pr-1 scrollbar-thin space-y-1">
+                                                                {manualScanResults.length === 0 ? (
+                                                                    <div className="text-xs text-gray-600 text-center">Kriterlere uyan hisse yok.</div>
+                                                                ) : (
+                                                                    manualScanResults.map((r, i) => (
+                                                                        <div key={i} onClick={() => loadData(r.symbol)} className="flex justify-between items-center bg-[#0d1015] p-2 rounded cursor-pointer border border-pink-900/30 hover:border-pink-500/50">
+                                                                            <div className="font-bold text-xs text-white">{r.symbol}</div>
+                                                                            <div className="text-right">
+                                                                                <div className="text-[10px] font-black text-pink-500">
+                                                                                    GÜÇLÜ AL
+                                                                                </div>
+                                                                                <div className="text-[9px] text-gray-400">{r.price.toFixed(2)} TL | RSI: {r.rsi.toFixed(0)}</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* --- BENZERLİK TARAMASI (NEW) --- */}
+                                            <div className="p-5 border-t border-[#232730] bg-[#0d1015]">
+                                                <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleScan('sim')}>
+                                                    <div className="text-xs font-bold text-teal-500 flex items-center gap-2">
+                                                        <i className={`ri-arrow-${scanVisibility.sim ? 'up' : 'down'}-s-line text-lg`}></i>
+                                                        GEÇMİŞLE BENZERLİK TARAMASI
+                                                    </div>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); runSimScan(); }}
+                                                        className="px-2 py-1 text-[10px] bg-teal-600/20 hover:bg-teal-600/40 text-teal-400 border border-teal-600/50 rounded font-bold transition-colors"
+                                                    >
+                                                        {simScanning ? 'TARANIYOR...' : 'BENZERLİK TARA'}
+                                                    </button>
+                                                </div>
+
+                                                {scanVisibility.sim && (
+                                                    <div className="mt-3 space-y-3">
+                                                        <div className="text-[9px] text-gray-500 italic">
+                                                            * Son 20 günlük hareketin %90+ benzerini geçmişte arar.
+                                                        </div>
+
+                                                        {simResults && (
+                                                            <div className="max-h-40 overflow-y-auto pr-1 scrollbar-thin space-y-1">
+                                                                {simResults.length === 0 ? (
+                                                                    <div className="text-xs text-gray-600 text-center">Benzerlik bulunamadı.</div>
+                                                                ) : (
+                                                                    simResults.map((r, i) => (
+                                                                        <div key={i} onClick={() => loadData(r.symbol)} className="flex justify-between items-center bg-[#161a22] p-2 rounded cursor-pointer border border-teal-900/30 hover:border-teal-500/50">
+                                                                            <div className="font-bold text-xs text-white">{r.symbol}</div>
+                                                                            <div className="text-right">
+                                                                                <div className="text-[10px] font-black text-teal-400">
+                                                                                    %{r.score.toFixed(1)} Eşleşme
+                                                                                </div>
+                                                                                <div className="text-[9px] text-gray-400">{r.date || 'Tarih Yok'}</div>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+
+                                            {/* NEWS FEED (MANUAL ONLY) */}
+                                            <div className="p-5 border-t border-[#232730] space-y-3">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <div className="text-xs font-bold text-gray-500">KAP HABERLERİ</div>
+                                                </div>
+
+                                                <div className="bg-[#161a22] p-3 rounded border border-[#232730] text-center space-y-2">
+                                                    <div className="text-[10px] text-gray-400">
+                                                        Otomatik veri çekimi devre dışı bırakıldı.
+                                                    </div>
+                                                    <a
+                                                        href={`https://www.google.com/search?q=${symbol.replace('.IS', '')}+KAP+haberleri`}
+                                                        target="_blank"
+                                                        className="block w-full bg-blue-600/10 hover:bg-blue-600/20 text-blue-500 border border-blue-600/50 rounded py-2 text-xs font-bold transition-colors"
+                                                    >
+                                                        KAP BİLDİRİMLERİNİ ARA <i className="ri-external-link-line"></i>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </>)
+                                    }
+                                </div>
+                            )}
+
+                            {/* SYSTEM GUIDE WIDGET */}
+                            <div className="p-5 border-t border-[#232730] space-y-3 pb-20">
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="text-xs font-bold text-gray-500">SİSTEM REHBERİ</div>
+                                    <button
+                                        onClick={() => setGuideOpen(!guideOpen)}
+                                        className="text-xs px-2 py-1 rounded bg-[#161a22] hover:bg-[#232730] text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+                                    >
+                                        <i className={`ri-${guideOpen ? 'arrow-up' : 'arrow-down'}-s-line`}></i>
+                                        {guideOpen ? 'Kapat' : 'Aç'}
+                                    </button>
+                                </div>
+
+                                {guideOpen && (
+                                    <div className="bg-[#161a22] p-3 rounded border border-[#232730] space-y-3 h-64 overflow-y-auto scrollbar-thin">
+                                        {[
+                                            { t: 'İCHİMOKU BULUTU', d: 'Trend yönünü ve destek/direnç bölgelerini gösterir. Bulut üstü alım, altı satım bölgesidir.' },
+                                            { t: 'FIBONACCI SEVİYELERİ', d: 'Fiyatın tepki verebileceği matematiksel destek ve direnç noktalarıdır.' },
+                                            { t: 'MOMENTUM RSI', d: 'Fiyatın hızı ve değişim gücüdür. 30 altı ucuz (alım), 70 üstü pahalı (satım) sinyalidir.' },
+                                            { t: 'ENDEKS GÖRECİLİ GÜÇ (RS)', d: 'Hissenin BIST100 endeksine göre performansıdır. Endeksi yenen hisseler tercih edilir.' },
+                                            { t: 'ALIM / SATIM FIRSATLARI (AGRESİF)', d: 'Riskli mod taramasıdır. Dip seviyelerden erken giriş fırsatlarını arar.' },
+                                            { t: 'PİYASA TARAYICISI (1H)', d: 'Tüm piyasayı saatlik grafikte tarar ve güvenli alım sinyallerini bulur.' },
+                                            { t: 'FORMASYON TARAYICISI (4H)', d: '4 saatlik grafiklerde mum formasyonlarını (Engulfing, Hammer vb.) otomatik tespit eder.' },
+                                            { t: '1. FİLTRE', d: 'Hacim, ATR ve spekülasyon kontrolü yapar. Güvenli olmayan hisseleri eler.' },
+                                            { t: '2. YÖN', d: 'Ana trendin yönünü belirler. Bulut durumu (Above/Below) baz alınır.' },
+                                            { t: '3. YAPI', d: 'Fiyatın teknik yapısıdır. Fibonacci ve destek seviyelerine uygunluk kontrol edilir.' },
+                                            { t: '4. MOMENTUM', d: 'Hacim profili ve alıcı/satıcı dengesidir.' },
+                                            { t: '5. MUM TETİĞİ', d: 'İşleme giriş için son teyit mumudur (Örn: Boğa Yutan Mum).' },
+                                            { t: '6. KATALİZÖR', d: 'Fiyatı hareketlendirecek haber akışıdır.' },
+                                            { t: '7. RİSK (R/R)', d: 'Kazanç/Risk oranıdır. En az 2.00 olması hedeflenir (1 birim riske 2 birim kazanç).' },
+                                            { t: 'ÇOKLU ZAMAN DİLİMİ (CASCADE)', d: 'Haftalık trendden başlayıp saatlik işleme kadar inen teyit zinciridir.' },
+                                            { t: 'MEVSİMSELLİK (AYLIK GETİRİ)', d: 'Hissenin son 10 yılda hangi ayda ne kadar kazandırdığını istatistiksel olarak gösterir.' },
+                                            { t: 'ARZ / TALEP BÖLGELERİ', d: 'Fiyatın daha önce güçlü tepki verdiği kurumsal alıcı ve satıcı bloklarını işaretler.' },
+                                            { t: 'YAPAY ZEKA DRONE', d: 'Geçmiş fiyat hareketlerini tarayarak benzerlik (Pattern Matching) analizi yapar.' },
+                                            { t: 'KRİTİK SEVİYELER (CLUSTER)', d: 'Fiyatın geçmişte yoğun işlem gördüğü, birbirine yakın destek/direnç noktalarının birleşimidir.' },
+                                            { t: 'HABER DUYGU ANALİZİ', d: 'Haber başlıklarını tarayarak piyasa algısını (Pozitif/Negatif/Nötr) ölçer.' },
+                                            { t: 'SON GÜN ÖZEL MANUEL TARAMA', d: 'Görsel tarama ile son gün oluşan AL sinyallerini filtreler.' },
+                                            { t: 'AL-SAT NOKTALARI', d: 'Grafik üzerindeki B (Buy) ve S (Sell) etiketleri, mum formasyonları ve trend dönüşlerine göre hesaplanan işlem giriş-çıkış bölgeleridir.' },
+                                            { t: 'SMA TREND ANALİZİ (GÜNLÜK)', d: '50 ve 200 günlük ortalamaları kullanarak uzun vadeli trendi analiz eder. Golden Cross (Yükseliş) ve Death Cross (Düşüş) sinyallerini tespit eder.' },
+                                            { t: 'UCUZLUK TARAMASI (SCORING)', d: 'Fiyat SMA200 üzerinde (Trend), RSI < 35 (UCUZ), Bant Altı (DİP), Destek Yakın (TEPKİ). Score >= 6 UCUZ, 4-5 GERİ ÇEKİLME.' }
+                                        ].map((item, i) => (
+                                            <div key={i} className="text-[10px] border-b border-gray-800 last:border-0 pb-2 last:pb-0">
+                                                <span className="font-bold text-gray-300 block mb-0.5">{item.t}</span>
+                                                <span className="text-gray-500 leading-tight">{item.d}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* CHART AREA */}
+                    <div className="flex-1 bg-white relative flex flex-col">
+                        {/* PRICE INFO BAR - ABOVE CHART */}
+                        {data ? (
+                            <div className="w-full p-3 flex gap-4 bg-[#0E1015] border-b border-[#232730]">
+                                <div className="text-white font-bold font-mono text-xl">
+                                    {data.currentPrice?.toFixed(2)} ₺
+                                </div>
+
+                                <div className={`text-sm font-bold flex items-center gap-1 ${dailyChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                    {dailyChange > 0 ? '+' : ''}{dailyChange?.toFixed(2)}%
+                                </div>
+
+                                <div className="text-gray-500 text-sm flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> CANLI
+                                </div>
+
+                                <div className="flex gap-1 ml-auto border-l border-[#232730] pl-4">
+                                    {['1h', '4h', '1d', '1wk', '1mo'].map(t => (
+                                        <button key={t} onClick={() => loadData(symbol, false, t)}
+                                            className={`px-2 py-0.5 text-xs font-bold rounded ${interval === t ? 'bg-blue-600 text-white' : 'bg-[#161a22] text-gray-400 hover:bg-[#232730]'}`}>
+                                            {t.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
+
+                        {/* 1. TOP CHART (65%) */}
+                        <div className="h-[65%] relative border-b border-[#232730] overflow-hidden">
+                            <Chart
+                                data={chartData}
+                                indicators={chartIndicators}
+                                visible={indSettings}
+                                onSeriesReady={(series) => chartSeries.current = series}
+                            />
+                        </div>
+
+                        {/* 2. BOTTOM INDICATOR DECK (35%) */}
+                        <div className="flex-1 bg-[#0E1015] flex overflow-hidden">
+                            {/* INDICATOR CONTROLS */}
+                            <div className="w-64 border-r border-[#232730] p-4 overflow-y-auto">
+                                <div className="text-xs font-bold text-gray-400 mb-4 flex justify-between items-center">
+                                    <span>GÖSTERGE PANELİ</span>
+                                    <button
+                                        onClick={() => {
+                                            const allOn = Object.values(indSettings).every(v => v === true);
+                                            const newVal = !allOn;
+                                            setIndSettings({
+                                                ichi: newVal, fib: newVal, sma: newVal, bb: newVal, vol: newVal, pattern: newVal, stoch: newVal
+                                            });
+                                        }}
+                                        className="text-[9px] bg-gray-800 hover:bg-gray-700 px-2 py-0.5 rounded text-gray-300 transition-colors"
+                                    >
+                                        {Object.values(indSettings).every(v => v === true) ? 'HEPSİNİ GİZLE' : 'HEPSİNİ GÖSTER'}
+                                    </button>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer hover:text-white select-none">
+                                        <input type="checkbox" checked={indSettings.ichi} onChange={() => toggleInd('ichi')} className="accent-blue-600" /> Ichimoku Bulutu
+                                    </label>
+                                    <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer hover:text-white select-none">
+                                        <input type="checkbox" checked={indSettings.fib} onChange={() => toggleInd('fib')} className="accent-purple-600" /> Fibonacci Seviyeleri
+                                    </label>
+                                    <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer hover:text-white select-none">
+                                        <input type="checkbox" checked={indSettings.sma} onChange={() => toggleInd('sma')} className="accent-yellow-600" /> SMA 50 / 200
+                                    </label>
+                                    <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer hover:text-white select-none">
+                                        <input type="checkbox" checked={indSettings.bb} onChange={() => toggleInd('bb')} className="accent-blue-500" /> BOLLINGER (18, 2)
+                                    </label>
+                                    <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer hover:text-white select-none">
+                                        <input type="checkbox" checked={indSettings.vol} onChange={() => toggleInd('vol')} className="accent-green-600" /> Hacim Grafiği
+                                    </label>
+                                    <label className="flex items-center gap-2 text-xs text-gray-300 cursor-pointer hover:text-white select-none">
+                                        <input type="checkbox" checked={indSettings.pattern} onChange={() => toggleInd('pattern')} className="accent-purple-600" /> AL-SAT NOKTALARI
+                                    </label>
+
+                                </div>
+                            </div>
+
+                            {/* TREND HEALTH METRICS */}
+                            <div className="flex-1 p-4 overflow-y-auto flex gap-6">
+                                {/* 1. PILLARS */}
+                                <div>
+                                    <div className="text-xs font-bold text-gray-400 mb-4">TREND SAĞLIK RAPORU (4H)</div>
+                                    {result && result.trend_health ? (
+                                        <div className="flex gap-8">
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className={result.trend_health.pillars.structure ? "text-green-500" : "text-red-500"}>{result.trend_health.pillars.structure ? "✔" : "✘"}</span>
+                                                    <span className="text-gray-300">YAPI (HH+HL)</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className={result.trend_health.pillars.cloud ? "text-green-500" : "text-red-500"}>{result.trend_health.pillars.cloud ? "✔" : "✘"}</span>
+                                                    <span className="text-gray-300">İCHİMOKU (Kijun)</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className={result.trend_health.pillars.rsi ? "text-green-500" : "text-red-500"}>{result.trend_health.pillars.rsi ? "✔" : "✘"}</span>
+                                                    <span className="text-gray-300">MOMENTUM (RSI)</span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className={result.trend_health.pillars.volume ? "text-green-500" : "text-red-500"}>{result.trend_health.pillars.volume ? "✔" : "✘"}</span>
+                                                    <span className="text-gray-300">HACİM (Talep)</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs">
+                                                    <span className={result.trend_health.pillars.atr ? "text-green-500" : "text-red-500"}>{result.trend_health.pillars.atr ? "✔" : "✘"}</span>
+                                                    <span className="text-gray-300">VOLATİLİTE (ATR)</span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs pt-2 border-t border-gray-800">
+                                                    <span className="text-yellow-500 text-[10px]">
+                                                        {result.trend_health.mode === 'TREND' ? 'YÜKSELİŞ' : 'YATAY'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-gray-600 text-xs italic">Sinyal bekleniyor...</div>
+                                    )}
+
+                                    {/* SINGLE STOCK PATTERN DISPLAY (Moved here) */}
+                                    {result && result.pattern_4h && (
+                                        <div className="mt-4 pt-4 border-t border-[#232730]">
+                                            <div className="text-xs font-bold text-gray-400 mb-2">MUM FORMASYONU (4S)</div>
+                                            <div className="flex justify-between items-center bg-[#161a22] p-2 rounded border border-gray-800">
+                                                <div>
+                                                    <div className="text-blue-400 font-bold text-xs">{result.pattern_4h.name}</div>
+                                                    <div className="text-[10px] text-gray-500">{new Date(result.pattern_4h.time * 1000).toLocaleTimeString()}</div>
+                                                </div>
+                                                <div className={`text-xs font-black ${result.pattern_4h.type === 'BULL' ? 'text-green-500' : result.pattern_4h.type === 'BEAR' ? 'text-red-500' : 'text-gray-500'}`}>
+                                                    {result.pattern_4h.type}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 2. SMA TREND WIDGET */}
+                                <div className="pl-6 border-l border-[#232730] flex-1">
+                                    <div className="text-xs font-bold text-gray-400 mb-4">SMA TREND ANALİZİ (GÜNLÜK)</div>
+                                    {result && result.sma_analysis ? (
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-gray-400">SMA 50 Durumu</span>
+                                                <span className={`font-bold ${result.sma_analysis.price_vs_50 ? "text-green-400" : "text-red-400"}`}>
+                                                    {result.sma_analysis.price_vs_50 ? "POZİTİF (Alıcı)" : "NEGATİF"}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-gray-400">SMA 200 Durumu</span>
+                                                <span className={`font-bold ${result.sma_analysis.price_vs_200 ? "text-green-400" : "text-red-400"}`}>
+                                                    {result.sma_analysis.price_vs_200 ? "GÜÇLÜ" : "ZAYIF"}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-gray-400">Kesişim (Cross)</span>
+                                                <span className={`font-bold px-1 rounded ${result.sma_analysis.golden_cross ? "bg-green-600 text-white animate-pulse" : result.sma_analysis.death_cross ? "bg-red-600 text-white animate-pulse" : "text-gray-500"}`}>
+                                                    {result.sma_analysis.cross_status}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs pt-1 border-t border-[#232730] mt-1">
+                                                <span className="text-gray-400 text-[10px]">YAPISAL YÖN</span>
+                                                <div className="flex items-center gap-1">
+                                                    <div className={`w-2 h-2 rounded-full ${result.sma_analysis.structure_bullish ? "bg-green-500" : "bg-red-500"}`}></div>
+                                                    <span className={`text-[10px] ${result.sma_analysis.structure_bullish ? "text-green-500" : "text-red-500"}`}>
+                                                        {result.sma_analysis.structure_bullish ? "BOĞA" : "AYI"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-gray-600 text-xs italic">Veri Yok</div>
+                                    )}
+                                </div>
+
+                                {/* NEW SECTION: SPECIAL INDICATOR STATUS */}
+                                <div className="pl-6 border-l border-[#232730] flex-1">
+                                    <div className="text-xs font-bold text-gray-400 mb-4">İNDİKATÖR DURUMU</div>
+                                    {result ? (
+                                        <div className="space-y-4">
+                                            {/* Ichimoku */}
+                                            <div className="flex justify-between items-center text-xs">
+                                                <div>
+                                                    <div className="text-gray-300 font-bold">ICHIMOKU</div>
+                                                    <div className="text-[10px] text-gray-500">
+                                                        Bulut: {result.cloudStatus === 'Above' ? 'Üstünde' : result.cloudStatus === 'Below' ? 'Altında' : 'İçinde'}
+                                                    </div>
+                                                </div>
+                                                <div className={`px-2 py-1 rounded font-bold ${result.cloudStatus === 'Above' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                                                    {result.cloudStatus === 'Above' ? 'ALIM UYGUN' : 'UYGUN DEĞİL'}
+                                                </div>
+                                            </div>
+
+                                            {/* Fibonacci */}
+                                            <div className="flex justify-between items-center text-xs">
+                                                <div>
+                                                    <div className="text-gray-300 font-bold">FIBONACCI</div>
+                                                    <div className="text-[10px] text-gray-500">
+                                                        Fiyat Konumu
+                                                    </div>
+                                                </div>
+                                                <div className={`px-2 py-1 rounded font-bold ${data.currentPrice > result.risk?.zoneLow ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                                                    {data.currentPrice > result.risk?.zoneLow ? 'ALIM UYGUN' : 'UYGUN DEĞİL'}
+                                                </div>
+                                            </div>
+
+                                            {/* RSI */}
+                                            <div className="flex justify-between items-center text-xs">
+                                                <div>
+                                                    <div className="text-gray-300 font-bold">RSI MOMENTUM</div>
+                                                    <div className="text-[10px] text-gray-500">
+                                                        Değer: {result.rsi?.toFixed(1)} ({result.rsiSlope})
+                                                    </div>
+                                                </div>
+                                                <div className={`px-2 py-1 rounded font-bold ${result.rsi > 50 ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                                                    {result.rsi > 50 ? 'ALIM UYGUN' : 'UYGUN DEĞİL'}
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    ) : <div className="text-xs text-gray-500">Veri bekleniyor...</div>}
+                                </div>
+
+                                {/* 3. MODE BADGE */}
+                                <div className="flex-1 flex flex-col items-center justify-center border-l border-[#232730] pl-6">
+                                    {result && result.trend_health && (
+                                        <>
+                                            <div className="text-xs text-gray-500 mb-1">STRATEJİ MODU</div>
+                                            <div className={`text-3xl font-black ${result.trend_health.mode === 'TREND' ? 'text-green-500' : 'text-yellow-500'}`}>
+                                                {result.trend_health.mode === 'TREND' ? 'YÜKSELİŞ' : 'YATAY'}
+                                            </div>
+                                            <div className="text-[10px] text-gray-400 mt-1 font-mono">
+                                                HEDEF: {result.target}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+
+</html>

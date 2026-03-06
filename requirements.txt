@@ -1,0 +1,11 @@
+flask
+flask-cors
+pandas
+pandas_ta
+yfinance
+numpy
+schedule
+scipy
+requests
+gunicorn
+waitress
